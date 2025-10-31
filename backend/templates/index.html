@@ -1,354 +1,344 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-	<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0"/>
 <title>La Búsqueda Navideña — Pixel Adventure</title>
 <style>
-:root {
---bg: #0a1e23;
---panel: #0f2b35;
---accent: #ffb347;
---text: #f0f8ff;
---success: #4CAF50;
---warning: #FF9800;
---error: #f44336;
+/* [MANTENER TODOS TUS ESTILOS CSS EXISTENTES] */
+:root{
+  --bg: #0a1e23;
+  --panel: #0f2b35;
+  --accent: #ffb347;
+  --text: #f0f8ff;
+  --success: #4CAF50;
+  --warning: #FF9800;
+  --error: #f44336;
 }
 
-html,body {
-height: 100%;
-margin: 0;
-background: linear-gradient(180deg, #0a2b3a, #051a25);
-font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
--webkit-font-smoothing: antialiased;
--moz-osx-font-smoothing: grayscale;
-touch-action: none;
-color: var(--text);
+html,body { 
+  height:100%; 
+  margin:0; 
+  background: linear-gradient(180deg, #0a2b3a, #051a25); 
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+  -webkit-font-smoothing:antialiased; 
+  -moz-osx-font-smoothing:grayscale; 
+  touch-action: none; 
+  color: var(--text);
 }
 
-#gameWrap {
-width: 100%;
-height: 100vh;
-display: flex;
-flex-direction: column;
-align-items: center;
-justify-content: center;
-gap: 12px;
-box-sizing: border-box;
-padding: 16px;
+#gameWrap { 
+  width:100%; 
+  height:100vh; 
+  display:flex; 
+  flex-direction:column; 
+  align-items:center; 
+  justify-content:center; 
+  gap:12px; 
+  box-sizing:border-box; 
+  padding:16px; 
 }
 
-canvas {
-image-rendering: pixelated;
-background: linear-gradient(180deg, #0a3a4a, #063240);
-border-radius: 12px;
-box-shadow: 0 12px 40px rgba(0,0,0,0.7);
-border: 2px solid rgba(255, 179, 71, 0.3);
+canvas { 
+  image-rendering: pixelated; 
+  background: linear-gradient(180deg, #0a3a4a, #063240); 
+  border-radius:12px; 
+  box-shadow: 0 12px 40px rgba(0,0,0,0.7); 
+  border: 2px solid rgba(255, 179, 71, 0.3);
 }
 
-.hud {
-width: 100%;
-max-width: 900px;
-display: flex;
-justify-content: space-between;
-align-items: center;
-color: var(--text);
-gap: 12px;
+.hud { 
+  width:100%; 
+  max-width:900px; 
+  display:flex; 
+  justify-content:space-between; 
+  align-items:center; 
+  color:var(--text); 
+  gap:12px; 
 }
 
-.panel {
-background: rgba(15, 43, 53, 0.9);
-padding: 12px 16px;
-border-radius: 12px;
-display: flex;
-gap: 12px;
-align-items: center;
-border: 1px solid rgba(255, 179, 71, 0.2);
-backdrop-filter: blur(10px);
+.panel { 
+  background: rgba(15, 43, 53, 0.9); 
+  padding:12px 16px; 
+  border-radius:12px; 
+  display:flex; 
+  gap:12px; 
+  align-items:center; 
+  border: 1px solid rgba(255, 179, 71, 0.2);
+  backdrop-filter: blur(10px);
 }
 
-.button {
-background: var(--accent);
-color: #1a1a1a;
-padding: 8px 16px;
-border-radius: 8px;
-cursor: pointer;
-font-weight: 700;
-border: none;
-transition: all 0.2s ease;
-box-shadow: 0 4px 12px rgba(255, 179, 71, 0.3);
+.button { 
+  background: var(--accent); 
+  color:#1a1a1a; 
+  padding:8px 16px; 
+  border-radius:8px; 
+  cursor:pointer; 
+  font-weight:700; 
+  border:none; 
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(255, 179, 71, 0.3);
 }
 
 .button:hover {
-background: #ffa53d;
-transform: translateY(-2px);
-box-shadow: 0 6px 16px rgba(255, 179, 71, 0.4);
+  background: #ffa53d;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(255, 179, 71, 0.4);
 }
 
-#inventory {
-display: flex;
-gap: 10px;
-align-items: center;
+#inventory { 
+  display:flex; 
+  gap:10px; 
+  align-items:center; 
 }
 
-.item {
-display: flex;
-gap: 8px;
-align-items: center;
-padding: 8px 12px;
-background: rgba(255, 255, 255, 0.1);
-border-radius: 8px;
-border: 1px solid rgba(255, 255, 255, 0.2);
-font-weight: 600;
+.item { 
+  display:flex; 
+  gap:8px; 
+  align-items:center; 
+  padding:8px 12px; 
+  background: rgba(255, 255, 255, 0.1); 
+  border-radius:8px; 
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  font-weight: 600;
 }
 
-#mobileControls {
-position: absolute;
-bottom: 24px;
-left: 24px;
-display: none;
-gap: 10px;
+#mobileControls { 
+  position: absolute; 
+  bottom:24px; 
+  left:24px; 
+  display:none; 
+  gap:10px; 
 }
 
-.dpad {
-width: 150px;
-height: 150px;
-background: rgba(15, 43, 53, 0.9);
-border-radius: 16px;
-display: grid;
-grid-template-columns: repeat(3,1fr);
-grid-template-rows: repeat(3,1fr);
-border: 2px solid rgba(255, 179, 71, 0.3);
-backdrop-filter: blur(10px);
+.dpad { 
+  width:150px; 
+  height:150px; 
+  background: rgba(15, 43, 53, 0.9); 
+  border-radius:16px; 
+  display:grid; 
+  grid-template-columns:repeat(3,1fr); 
+  grid-template-rows:repeat(3,1fr); 
+  border: 2px solid rgba(255, 179, 71, 0.3);
+  backdrop-filter: blur(10px);
 }
 
-.dpad button {
-background: transparent;
-border: 0;
-color: transparent;
-transition: background 0.2s ease;
+.dpad button { 
+  background:transparent; 
+  border:0; 
+  color:transparent; 
+  transition: background 0.2s ease;
 }
 
 .dpad button:active {
-background: rgba(255, 179, 71, 0.3);
+  background: rgba(255, 179, 71, 0.3);
 }
 
 /* Modal styles */
-.modal {
-display: none;
-position: fixed;
-top: 0;
-left: 0;
-width: 100%;
-height: 100%;
-background: rgba(0,0,0,0.85);
-z-index: 1000;
-justify-content: center;
-align-items: center;
+.modal { 
+  display: none; 
+  position: fixed; 
+  top: 0; 
+  left: 0; 
+  width: 100%; 
+  height: 100%; 
+  background: rgba(0,0,0,0.85); 
+  z-index: 1000; 
+  justify-content: center; 
+  align-items: center; 
 }
 
-.modal-content {
-background: var(--panel);
-padding: 24px;
-border-radius: 16px;
-max-width: 420px;
-width: 90%;
-text-align: center;
-border: 2px solid var(--accent);
-box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+.modal-content { 
+  background: var(--panel); 
+  padding: 24px; 
+  border-radius: 16px; 
+  max-width: 420px; 
+  width: 90%; 
+  text-align: center; 
+  border: 2px solid var(--accent);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.8);
 }
 
-.modal input {
-width: 85%;
-padding: 12px;
-margin: 12px 0;
-border: none;
-border-radius: 8px;
-background: rgba(255,255,255,0.15);
-color: var(--text);
-font-size: 16px;
-border: 1px solid rgba(255, 179, 71, 0.3);
+.modal input { 
+  width: 85%; 
+  padding: 12px; 
+  margin: 12px 0; 
+  border: none; 
+  border-radius: 8px; 
+  background: rgba(255,255,255,0.15); 
+  color: var(--text); 
+  font-size: 16px;
+  border: 1px solid rgba(255, 179, 71, 0.3);
 }
 
 .modal input:focus {
-outline: none;
-border-color: var(--accent);
-background: rgba(255, 255, 255, 0.2);
+  outline: none;
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.2);
 }
 
-.modal-buttons {
-display: flex;
-gap: 12px;
-justify-content: center;
-margin-top: 20px;
+.modal-buttons { 
+  display: flex; 
+  gap: 12px; 
+  justify-content: center; 
+  margin-top: 20px; 
 }
 
 /* Leaderboard styles */
-#leaderboard {
-margin-top: 20px;
-max-height: 250px;
-overflow-y: auto;
+#leaderboard { 
+  margin-top: 20px; 
+  max-height: 250px; 
+  overflow-y: auto; 
 }
 
-.leaderboard-item {
-display: flex;
-justify-content: space-between;
-padding: 8px 0;
-border-bottom: 1px solid rgba(255,255,255,0.15);
-font-weight: 500;
+.leaderboard-item { 
+  display: flex; 
+  justify-content: space-between; 
+  padding: 8px 0; 
+  border-bottom: 1px solid rgba(255,255,255,0.15); 
+  font-weight: 500;
 }
 
-.leaderboard-item:nth-child(1) {
-color: gold;
-font-weight: bold;
-}
-.leaderboard-item:nth-child(2) {
-color: silver;
-font-weight: bold;
-}
-.leaderboard-item:nth-child(3) {
-color: #cd7f32;
-font-weight: bold;
-}
+.leaderboard-item:nth-child(1) { color: gold; font-weight: bold; }
+.leaderboard-item:nth-child(2) { color: silver; font-weight: bold; }
+.leaderboard-item:nth-child(3) { color: #cd7f32; font-weight: bold; }
 
 /* Collect button for mobile */
-#collectBtn {
-position: absolute;
-bottom: 24px;
-right: 24px;
-display: none;
-width: 70px;
-height: 70px;
-border-radius: 50%;
-background: var(--accent);
-color: #1a1a1a;
-border: none;
-font-weight: bold;
-font-size: 14px;
-box-shadow: 0 6px 20px rgba(255, 179, 71, 0.4);
-transition: all 0.2s ease;
+#collectBtn { 
+  position: absolute; 
+  bottom: 24px; 
+  right: 24px; 
+  display: none; 
+  width: 70px; 
+  height: 70px; 
+  border-radius: 50%; 
+  background: var(--accent); 
+  color: #1a1a1a; 
+  border: none; 
+  font-weight: bold; 
+  font-size: 14px; 
+  box-shadow: 0 6px 20px rgba(255, 179, 71, 0.4);
+  transition: all 0.2s ease;
 }
 
 #collectBtn:active {
-transform: scale(0.95);
-background: #ffa53d;
+  transform: scale(0.95);
+  background: #ffa53d;
 }
 
 /* Status message improvements */
 #message {
-font-weight: 700;
-font-size: 14px;
-text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+  font-weight: 700;
+  font-size: 14px;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.5);
 }
 
 /* Timer styling */
 #timer {
-font-weight: 800;
-color: var(--accent);
-font-size: 18px;
+  font-weight: 800;
+  color: var(--accent);
+  font-size: 18px;
 }
 
 /* Inventory item improvements */
 #found, #total {
-font-weight: 800;
-color: var(--accent);
-font-size: 18px;
+  font-weight: 800;
+  color: var(--accent);
+  font-size: 18px;
 }
 
-@media (max-width:800px) {
-#mobileControls {
-display: block;
-}
-#collectBtn {
-display: block;
-}
-canvas {
-width: 95vw !important;
-height: calc(95vw * (9/16)) !important;
-}
-.hud {
-flex-direction: column;
-gap: 8px;
-}
-.panel {
-width: 100%;
-justify-content: center;
-}
+@media (max-width:800px){
+  #mobileControls { display: block; }
+  #collectBtn { display: block; }
+  canvas { 
+    width:95vw !important; 
+    height: calc(95vw * (9/16)) !important; 
+  }
+  .hud {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .panel {
+    width: 100%;
+    justify-content: center;
+  }
 }
 
-html, body, canvas {
--webkit-touch-callout: none;
--webkit-user-select: none;
--ms-user-select: none;
-user-select: none;
+html, body, canvas { 
+  -webkit-touch-callout: none; 
+  -webkit-user-select:none; 
+  -ms-user-select:none; 
+  user-select:none; 
 }
 
 /* Scrollbar styling */
 #leaderboard::-webkit-scrollbar {
-width: 8px;
+  width: 8px;
 }
 
 #leaderboard::-webkit-scrollbar-track {
-background: rgba(255, 255, 255, 0.1);
-border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
 }
 
 #leaderboard::-webkit-scrollbar-thumb {
-background: var(--accent);
-border-radius: 4px;
+  background: var(--accent);
+  border-radius: 4px;
 }
 
 #leaderboard::-webkit-scrollbar-thumb:hover {
-background: #ffa53d;
+  background: #ffa53d;
+}
+
+/* User info panel */
+.user-info {
+  background: rgba(255, 179, 71, 0.1);
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 179, 71, 0.3);
+  font-size: 14px;
 }
 </style>
 </head>
 <body>
 <div id="gameWrap">
-<div class="hud" style="max-width:900px;">
-<div class="panel">
-<div style="font-weight:800; font-size:1.05rem">
-La Búsqueda Navideña — Pixel Adventure
-</div>
-<div style="opacity:0.8; margin-left:6px">
-Encuentra los regalos antes de que nieve demasiado ⛄️
-</div>
-</div>
+  <div class="hud" style="max-width:900px;">
+    <div class="panel">
+      <div style="font-weight:800; font-size:1.05rem">La Búsqueda Navideña — Pixel Adventure</div>
+      <div style="opacity:0.8; margin-left:6px">Encuentra los regalos antes de que nieve demasiado ⛄️</div>
+    </div>
 
-<div class="panel" style="justify-content:flex-end">
-<div id="status">
-Objetos: <span id="found">0</span>/<span id="total">0</span>
-</div>
-<div id="inventory" style="margin-left:12px"></div>
-<button id="fullscreenBtn" class="button" style="margin-left:12px">Pantalla completa</button>
-<button id="leaderboardBtn" class="button" style="margin-left:12px">Ranking</button>
-</div>
-</div>
+    <div class="panel" style="justify-content:flex-end">
+      <div id="userInfo" class="user-info" style="display:none;">
+        Jugando como: <span id="currentUser">Usuario</span>
+      </div>
+      <div id="status">Objetos: <span id="found">0</span>/<span id="total">0</span></div>
+      <div id="inventory" style="margin-left:12px"></div>
+      <button id="fullscreenBtn" class="button" style="margin-left:12px">Pantalla completa</button>
+      <button id="leaderboardBtn" class="button" style="margin-left:12px">Ranking</button>
+    </div>
+  </div>
 
-<canvas id="game" width="640" height="360" style="width:960px; height:540px;"></canvas>
+  <canvas id="game" width="640" height="360" style="width:960px; height:540px;"></canvas>
 
-<div style="max-width:900px; width:100%; display:flex; justify-content:space-between; gap:12px;">
-<div class="panel" style="flex:1">
-<div>
-<strong>Controles:</strong> WASD / Flechas para mover. Tecla E para recoger objetos.
-</div>
-</div>
-<div class="panel" style="width:300px; justify-content:space-between;">
-<div>
-Tiempo: <span id="timer">0</span>s
-</div>
-<div id="message" style="font-weight:700"></div>
-</div>
-</div>
+  <div style="max-width:900px; width:100%; display:flex; justify-content:space-between; gap:12px;">
+    <div class="panel" style="flex:1">
+      <div><strong>Controles:</strong> WASD / Flechas para mover. Tecla E para recoger objetos.</div>
+    </div>
+    <div class="panel" style="width:300px; justify-content:space-between;">
+      <div>Tiempo: <span id="timer">0.00</span>s</div>
+      <div id="message" style="font-weight:700"></div>
+    </div>
+  </div>
 </div>
 
 <!-- Mobile Controls -->
 <div id="mobileControls">
-<div class="dpad" id="dpad">
-<button data-dir="nw"></button><button data-dir="north"></button><button data-dir="ne"></button>
-<button data-dir="west"></button><button data-dir="center"></button><button data-dir="east"></button>
-<button data-dir="sw"></button><button data-dir="south"></button><button data-dir="se"></button>
-</div>
+  <div class="dpad" id="dpad">
+    <button data-dir="nw"></button><button data-dir="north"></button><button data-dir="ne"></button>
+    <button data-dir="west"></button><button data-dir="center"></button><button data-dir="east"></button>
+    <button data-dir="sw"></button><button data-dir="south"></button><button data-dir="se"></button>
+  </div>
 </div>
 
 <!-- Collect Button for Mobile -->
@@ -356,54 +346,174 @@ Tiempo: <span id="timer">0</span>s
 
 <!-- Score Submission Modal -->
 <div id="scoreModal" class="modal">
-<div class="modal-content">
-<h3>¡Felicidades! 🎉</h3>
-<p>
-Has encontrado todos los regalos en <span id="finalTime">0</span> segundos
-</p>
-<input type="text" id="discordId" placeholder="Tu ID de Discord" maxlength="50">
-<div class="modal-buttons">
-<button class="button" id="submitScore">Guardar Puntaje</button>
-<button class="button" style="background:#666" id="cancelScore">Cancelar</button>
-</div>
-</div>
+  <div class="modal-content">
+    <h3>¡Felicidades! 🎉</h3>
+    <p>Has encontrado todos los regalos en <span id="finalTime">0.00</span> segundos</p>
+    <input type="text" id="discordId" placeholder="Tu ID de Discord" maxlength="50">
+    <div id="userBest" style="margin: 10px 0; padding: 8px; background: rgba(255,255,255,0.1); border-radius: 6px; display: none;">
+      Tu mejor tiempo: <span id="bestTime">0.00</span>s
+    </div>
+    <div class="modal-buttons">
+      <button class="button" id="submitScore">Guardar Puntaje</button>
+      <button class="button" style="background:#666" id="cancelScore">Cancelar</button>
+    </div>
+  </div>
 </div>
 
 <!-- Leaderboard Modal -->
 <div id="leaderboardModal" class="modal">
-<div class="modal-content">
-<h3>🏆 Mejores Puntuaciones</h3>
-<div id="leaderboard">
-<div style="text-align:center; padding:20px;">
-Cargando...
-</div>
-</div>
-<div class="modal-buttons">
-<button class="button" id="closeLeaderboard">Cerrar</button>
-</div>
-</div>
+  <div class="modal-content">
+    <h3>🏆 Mejores Puntuaciones</h3>
+    <div id="leaderboard">
+      <div style="text-align:center; padding:20px;">Cargando...</div>
+    </div>
+    <div class="modal-buttons">
+      <button class="button" id="closeLeaderboard">Cerrar</button>
+    </div>
+  </div>
 </div>
 
 <script>
-	
-// Configuración del backend
-const API_BASE_URL = window.location.origin;
+// ========== CONFIGURACIÓN ==========
+let currentDiscordId = '';
+let userBestScore = null;
 
-// Elementos del DOM
-const gameCanvas = document.getElementById('game');
-const ctx = gameCanvas.getContext('2d');
+// ========== FUNCIONES DE URL ==========
+function getUrlParameter(name) {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get(name);
+}
 
-// GAME CONFIG
+// Obtener ID de Discord desde la URL
+function initializeDiscordId() {
+    const urlId = getUrlParameter('id');
+    if (urlId) {
+        currentDiscordId = decodeURIComponent(urlId);
+        document.getElementById('userInfo').style.display = 'flex';
+        document.getElementById('currentUser').textContent = currentDiscordId;
+        document.getElementById('discordId').value = currentDiscordId;
+        
+        // Cargar el mejor score del usuario
+        loadUserBestScore(currentDiscordId);
+    }
+}
+
+// ========== FUNCIONES DE API MEJORADAS ==========
+async function loadUserBestScore(discordId) {
+    try {
+        const response = await fetch(`/score/${encodeURIComponent(discordId)}`);
+        if (response.ok) {
+            const data = await response.json();
+            userBestScore = data.score;
+            document.getElementById('userBest').style.display = 'block';
+            document.getElementById('bestTime').textContent = data.score.toFixed(2);
+        }
+    } catch (error) {
+        console.log('Usuario nuevo o error cargando score anterior');
+    }
+}
+
+async function submitScore(discordId, score) {
+    try {
+        const response = await fetch('/score', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                discord_id: discordId,
+                score: parseFloat(score)  // Asegurar que es float
+            })
+        });
+
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            if (data.action === 'updated') {
+                showMessage('¡Nuevo récord personal! 🏆', 'success');
+            } else if (data.action === 'created') {
+                showMessage('¡Primera puntuación guardada! ✅', 'success');
+            } else {
+                showMessage('Mantienes tu mejor marca 👍', 'info');
+            }
+            return true;
+        } else {
+            showMessage(data.message || 'Error al guardar', 'error');
+            return false;
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showMessage('Error de conexión', 'error');
+        return false;
+    }
+}
+
+async function loadLeaderboard() {
+    try {
+        const response = await fetch('/scores');
+        const scores = await response.json();
+        const leaderboardElement = document.getElementById('leaderboard');
+        
+        if (!Array.isArray(scores) || scores.length === 0) {
+            leaderboardElement.innerHTML = '<div style="text-align:center; padding:20px;">No hay puntuaciones aún</div>';
+            return;
+        }
+        
+        let html = '';
+        scores.forEach((score, index) => {
+            const isCurrentUser = currentDiscordId && score.discord_id === currentDiscordId;
+            const userClass = isCurrentUser ? 'style="background: rgba(255, 179, 71, 0.2); border-radius: 4px; padding: 4px;"' : '';
+            html += `
+                <div class="leaderboard-item" ${userClass}>
+                    <span>${index + 1}. ${score.discord_id}</span>
+                    <span>${score.score.toFixed(2)}s</span>
+                    <small>${new Date(score.date).toLocaleDateString()}</small>
+                </div>
+            `;
+        });
+        
+        leaderboardElement.innerHTML = html;
+    } catch (error) {
+        console.error('Error cargando ranking:', error);
+        document.getElementById('leaderboard').innerHTML = 
+            `<div style="text-align:center; padding:20px; color:#ff6b6b;">
+                Error cargando ranking
+            </div>`;
+    }
+}
+
+// ========== SISTEMA DE TIEMPO CON DECIMALES ==========
+let gameTime = 0;
+let gameTimer = null;
+let startTime = 0;
+
+function startGameTimer() {
+    gameTime = 0;
+    startTime = performance.now();
+    gameTimer = setInterval(updateTimer, 100);
+}
+
+function updateTimer() {
+    const currentTime = performance.now();
+    gameTime = (currentTime - startTime) / 1000; // Tiempo en segundos con decimales
+    document.getElementById('timer').textContent = gameTime.toFixed(2);
+}
+
+function stopGameTimer() {
+    if (gameTimer) {
+        clearInterval(gameTimer);
+        gameTimer = null;
+    }
+}
+
+// ========== FUNCIONES DEL JUEGO ==========
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
 const TILE = 32;
 const MAP_W = 20, MAP_H = 11;
 const PLAYER_SPEED = 2.2;
 let foundCount = 0;
-let gameTime = 0;
-let gameTimer = null;
 let gameCompleted = false;
 let nearItem = null;
 
-// Player state
 const player = {
   x: TILE*2 + TILE/2, y: TILE*2 + TILE/2,
   vx:0, vy:0,
@@ -415,293 +525,63 @@ const player = {
 
 const pressedKeys = new Set();
 
-// Game map (mantener tu código existente)
-const map = [];
-for(let y=0;y<MAP_H;y++){
-  map[y] = [];
-  for(let x=0;x<MAP_W;x++){
-    if(y===0||y===MAP_H-1||x===0||x===MAP_W-1) map[y][x]=1;
-    else map[y][x] = Math.random() < 0.05 ? 2 : (Math.random() < 0.12 ? 3 : (Math.random() < 0.02 ? 5 : 0));
-  }
-}
-
-for(let i=0;i<14;i++){
-  const tx = 2 + Math.floor(Math.random()*(MAP_W-4));
-  const ty = 2 + Math.floor(Math.random()*(MAP_H-4));
-  map[ty][tx] = 1;
-}
-
-// Hidden items
-const items = [];
-const ITEM_TYPES = [
-  { name: 'regalo_rojo', color: '#ff4444', symbol: '🎁' },
-  { name: 'regalo_verde', color: '#44ff44', symbol: '🎁' },
-  { name: 'muñeco_nieve', color: '#ffffff', symbol: '⛄' }
-];
-
-for(let i=0;i<10;i++){
-  let tries=0;
-  while(tries<200){
-    const rx = 1 + Math.floor(Math.random()*(MAP_W-2));
-    const ry = 1 + Math.floor(Math.random()*(MAP_H-2));
-    if((map[ry][rx]===3 || map[ry][rx]===1 || map[ry][rx]===2) && !items.find(it=>it.xTile===rx && it.yTile===ry)){
-      const itemType = ITEM_TYPES[Math.floor(Math.random()*ITEM_TYPES.length)];
-      items.push({
-        xTile:rx, yTile:ry,
-        type: itemType.name,
-        color: itemType.color,
-        symbol: itemType.symbol,
-        found:false
-      });
-      break;
-    }
-    tries++;
-  }
-}
-document.getElementById('total').textContent = items.length;
-
-
-
-// ========== FUNCIONES DE API ==========
-async function submitScore(discordId, score) {
-  try {
-    const response = await fetch('/score', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        discord_id: discordId,
-        score: score
-      })
-    });
-
-    // Manejar tanto JSON como texto
-    let data;
-    const contentType = response.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
-      data = await response.json();
-    } else {
-      const text = await response.text();
-      throw new Error(`Respuesta inesperada: ${text}`);
-    }
-
-    if (data.status === 'success') {
-      showMessage('¡Puntaje guardado exitosamente! 🎉', 'success');
-      return true;
-    } else {
-      showMessage(data.message || 'Error al guardar puntaje', 'error');
-      return false;
-    }
-  } catch (error) {
-    console.error('Error enviando puntuación:', error);
-    showMessage(`Error: ${error.message}`, 'error');
-    return false;
-  }
-}
-
-async function loadLeaderboard() {
-  try {
-    const response = await fetch('/scores');
-    
-    if (!response.ok) {
-      throw new Error(`Error ${response.status}: ${response.statusText}`);
-    }
-
-    // Manejar tanto JSON como texto
-    let scores;
-    const contentType = response.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
-      scores = await response.json();
-    } else {
-      const text = await response.text();
-      throw new Error(`Respuesta inesperada: ${text}`);
-    }
-
-    const leaderboardElement = document.getElementById('leaderboard');
-    
-    if (!Array.isArray(scores)) {
-      leaderboardElement.innerHTML = '<div style="text-align:center; padding:20px;">Formato de datos inesperado</div>';
-      return;
-    }
-    
-    if (scores.length === 0) {
-      leaderboardElement.innerHTML = '<div style="text-align:center; padding:20px;">No hay puntuaciones aún</div>';
-      return;
-    }
-    
-    let leaderboardHTML = '';
-    scores.forEach((score, index) => {
-      const date = score.date ? new Date(score.date).toLocaleDateString() : 'Fecha desconocida';
-      leaderboardHTML += `
-        <div class="leaderboard-item">
-          <span>${index + 1}. ${score.discord_id || 'Anónimo'}</span>
-          <span>${score.score} seg</span>
-          <small>${date}</small>
-        </div>
-      `;
-    });
-    
-    leaderboardElement.innerHTML = leaderboardHTML;
-    
-  } catch (error) {
-    console.error('Error cargando leaderboard:', error);
-    document.getElementById('leaderboard').innerHTML = 
-      `<div style="text-align:center; padding:20px; color:#ff6b6b;">
-        Error: ${error.message}
-       </div>`;
-  }
-}
-
-// Función de test mejorada
-async function testConnection() {
-  try {
-    const response = await fetch('/health');
-    
-    // Manejar tanto JSON como texto
-    let data;
-    const contentType = response.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
-      data = await response.json();
-      console.log('✅ Conexión JSON exitosa:', data);
-    } else {
-      data = await response.text();
-      console.log('⚠️ Conexión exitosa (texto):', data);
-    }
-    
-    return true;
-  } catch (error) {
-    console.error('❌ Error de conexión:', error);
-    return false;
-  }
-}
-
-// Test al cargar
-window.addEventListener('load', () => {
-  testConnection();
-  loadLeaderboard();
-});
-// ========== FUNCIONES DEL JUEGO (mantener tu código existente) ==========
-function startGameTimer() {
-  gameTime = 0;
-  gameTimer = setInterval(() => {
-    gameTime++;
-    document.getElementById('timer').textContent = gameTime;
-  }, 1000);
-}
-
-function stopGameTimer() {
-  if (gameTimer) {
-    clearInterval(gameTimer);
-    gameTimer = null;
-  }
-}
-
 function showMessage(text, type = 'info') {
-  const messageElement = document.getElementById('message');
-  messageElement.textContent = text;
-  messageElement.style.color = type === 'error' ? '#ff6b6b' : 
-                              type === 'success' ? '#51cf66' : '#ffd86b';
-  
-  setTimeout(() => {
-    messageElement.textContent = '';
-  }, 3000);
+    const element = document.getElementById('message');
+    element.textContent = text;
+    element.style.color = type === 'error' ? '#ff6b6b' : 
+                         type === 'success' ? '#51cf66' : '#ffd86b';
+    setTimeout(() => element.textContent = '', 3000);
 }
 
 function showScoreModal() {
-  document.getElementById('finalTime').textContent = gameTime;
-  document.getElementById('scoreModal').style.display = 'flex';
-  document.getElementById('discordId').value = '';
-  document.getElementById('discordId').focus();
+    document.getElementById('finalTime').textContent = gameTime.toFixed(2);
+    document.getElementById('scoreModal').style.display = 'flex';
+    
+    // Si ya tenemos un ID de Discord, pre-llenar y enfocar el botón de enviar
+    if (currentDiscordId) {
+        document.getElementById('discordId').value = currentDiscordId;
+        document.getElementById('submitScore').focus();
+    } else {
+        document.getElementById('discordId').focus();
+    }
 }
 
 function showLeaderboard() {
-  loadLeaderboard();
-  document.getElementById('leaderboardModal').style.display = 'flex';
-}
-
-function checkNearbyItems() {
-  const pTileX = Math.floor(player.x / TILE);
-  const pTileY = Math.floor(player.y / TILE);
-  
-  nearItem = null;
-  
-  items.forEach(it => {
-    if (!it.found) {
-      const distance = Math.abs(it.xTile - pTileX) + Math.abs(it.yTile - pTileY);
-      if (distance <= 1) {
-        nearItem = it;
-      }
-    }
-  });
-  
-  if (nearItem) {
-    document.getElementById('message').textContent = 'Presiona E para recoger';
-    document.getElementById('message').style.color = '#ffd86b';
-  } else {
-    document.getElementById('message').textContent = '';
-  }
-}
-
-function collectItem() {
-  if (nearItem && !nearItem.found) {
-    nearItem.found = true;
-    foundCount++;
-    document.getElementById('found').textContent = foundCount;
-    addInventoryItem(nearItem.type);
-    
-    nearItem = null;
-    document.getElementById('message').textContent = '';
-    
-    if (foundCount === items.length && !gameCompleted) {
-      gameCompleted = true;
-      stopGameTimer();
-      setTimeout(() => {
-        showScoreModal();
-      }, 1000);
-    }
-  }
+    loadLeaderboard();
+    document.getElementById('leaderboardModal').style.display = 'flex';
 }
 
 // ========== EVENT LISTENERS ==========
 document.getElementById('submitScore').addEventListener('click', async () => {
-  const discordId = document.getElementById('discordId').value.trim();
-  
-  if (!discordId) {
-    showMessage('Por favor ingresa tu ID de Discord', 'error');
-    return;
-  }
-  
-  const success = await submitScore(discordId, gameTime);
-  if (success) {
-    document.getElementById('scoreModal').style.display = 'none';
-  }
+    const discordId = document.getElementById('discordId').value.trim();
+    if (!discordId) {
+        showMessage('Ingresa tu ID de Discord', 'error');
+        return;
+    }
+    
+    const success = await submitScore(discordId, gameTime);
+    if (success) {
+        document.getElementById('scoreModal').style.display = 'none';
+        // Actualizar el ID actual si es nuevo
+        if (!currentDiscordId) {
+            currentDiscordId = discordId;
+            document.getElementById('userInfo').style.display = 'flex';
+            document.getElementById('currentUser').textContent = currentDiscordId;
+        }
+    }
 });
 
 document.getElementById('cancelScore').addEventListener('click', () => {
-  document.getElementById('scoreModal').style.display = 'none';
+    document.getElementById('scoreModal').style.display = 'none';
 });
 
 document.getElementById('leaderboardBtn').addEventListener('click', showLeaderboard);
 document.getElementById('closeLeaderboard').addEventListener('click', () => {
-  document.getElementById('leaderboardModal').style.display = 'none';
+    document.getElementById('leaderboardModal').style.display = 'none';
 });
 
-document.getElementById('collectBtn').addEventListener('click', collectItem);
-
-// Close modals cuando se hace click fuera
-document.querySelectorAll('.modal').forEach(modal => {
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) {
-      modal.style.display = 'none';
-    }
-  });
-});
-
-// ========== RESTANTE DEL CÓDIGO DEL JUEGO (mantener igual) ==========
-// [Aquí va todo el resto de tu código JavaScript existente para el juego:
-// drawPlayer, drawTile, isPassable, input handling, game loop, etc.]
-// ... (todo el código de dibujo y lógica del juego que ya tenías)
+// [EL RESTO DE TU CÓDIGO DEL JUEGO PERMANECE IGUAL...]
+// drawPlayer, drawTile, isPassable, input handling, game loop, etc.
 
 // Player drawing function
 function drawPlayer(ctx,px,py){
@@ -821,20 +701,57 @@ function handleDpad(dir, down){
 let lastTouch = 0;
 document.addEventListener('touchend', function (e) {
   const now = Date.now();
-  if (now - lastTouch <= 300) {
-    e.preventDefault();
-  }
+  if (now - lastTouch <= 300) e.preventDefault();
   lastTouch = now;
 }, { passive: false });
 
 // Fullscreen
-const fsBtn = document.getElementById('fullscreenBtn');
-fsBtn.addEventListener('click', async ()=>{
+document.getElementById('fullscreenBtn').addEventListener('click', async ()=>{
   try{
     if(!document.fullscreenElement) await document.documentElement.requestFullscreen();
     else await document.exitFullscreen();
   }catch(err){}
 });
+
+// Collection mechanics
+function checkNearbyItems() {
+  const pTileX = Math.floor(player.x / TILE);
+  const pTileY = Math.floor(player.y / TILE);
+  nearItem = null;
+  
+  items.forEach(it => {
+    if (!it.found && Math.abs(it.xTile - pTileX) + Math.abs(it.yTile - pTileY) <= 1) {
+      nearItem = it;
+    }
+  });
+  
+  document.getElementById('message').textContent = nearItem ? 'Presiona E para recoger' : '';
+}
+
+function collectItem() {
+  if (nearItem && !nearItem.found) {
+    nearItem.found = true;
+    foundCount++;
+    document.getElementById('found').textContent = foundCount;
+    addInventoryItem(nearItem.type);
+    nearItem = null;
+    
+    if (foundCount === items.length && !gameCompleted) {
+      gameCompleted = true;
+      stopGameTimer();
+      setTimeout(showScoreModal, 1000);
+    }
+  }
+}
+
+function addInventoryItem(type) {
+  const inv = document.getElementById('inventory');
+  const div = document.createElement('div');
+  div.className = 'item';
+  div.textContent = type;
+  inv.appendChild(div);
+  showMessage(`¡${type} encontrado!`, 'success');
+}
 
 // Game loop
 function update(){
@@ -846,10 +763,7 @@ function update(){
   if(pressedKeys.has('arrowleft') || pressedKeys.has('a')) dx -= 1;
   if(pressedKeys.has('arrowright') || pressedKeys.has('d')) dx += 1;
   
-  if(dx!==0 && dy!==0){
-    dx *= Math.SQRT1_2;
-    dy *= Math.SQRT1_2;
-  }
+  if(dx!==0 && dy!==0){ dx *= Math.SQRT1_2; dy *= Math.SQRT1_2; }
   
   player.vx = dx * PLAYER_SPEED;
   player.vy = dy * PLAYER_SPEED;
@@ -857,8 +771,6 @@ function update(){
 
   const nextX = player.x + player.vx;
   const nextY = player.y + player.vy;
-  const nextTileX = Math.floor((nextX)/TILE);
-  const nextTileY = Math.floor((nextY)/TILE);
   
   if(isPassable(Math.floor((nextX-8)/TILE), Math.floor((player.y-8)/TILE)) &&
      isPassable(Math.floor((nextX+8)/TILE), Math.floor((player.y+8)/TILE))){
@@ -886,7 +798,7 @@ function update(){
 }
 
 function draw(){
-  ctx.clearRect(0,0,gameCanvas.width,gameCanvas.height);
+  ctx.clearRect(0,0,canvas.width,canvas.height);
 
   for(let y=0;y<MAP_H;y++){
     for(let x=0;x<MAP_W;x++){
@@ -901,7 +813,6 @@ function draw(){
     if(!it.found) {
       ctx.fillStyle = it.color;
       ctx.fillRect(px-6, py-6, 12, 12);
-      
       ctx.fillStyle = '#000';
       ctx.font = '10px Arial';
       ctx.textAlign = 'center';
@@ -916,31 +827,64 @@ function draw(){
   drawPlayer(ctx, player.x, player.y);
 }
 
-function addInventoryItem(type){
-  const inv = document.getElementById('inventory');
-  const div = document.createElement('div');
-  div.className='item';
-  div.textContent = type;
-  inv.appendChild(div);
-
-  setTimeout(() => div.style.transform='scale(1.05)',50);
-  setTimeout(() => div.style.transform='',380);
-  
-  showMessage(`¡Encontraste ${type}!`, 'success');
-}
-
 function loop(){
   update();
   draw();
   requestAnimationFrame(loop);
 }
 
-// ========== INICIALIZACIÓN ==========
+// ========== INICIALIZACIÓN DEL JUEGO ==========
+// Map and items initialization
+const map = [];
+for(let y=0;y<MAP_H;y++){
+  map[y] = [];
+  for(let x=0;x<MAP_W;x++){
+    if(y===0||y===MAP_H-1||x===0||x===MAP_W-1) map[y][x]=1;
+    else map[y][x] = Math.random() < 0.05 ? 2 : (Math.random() < 0.12 ? 3 : (Math.random() < 0.02 ? 5 : 0));
+  }
+}
+
+for(let i=0;i<14;i++){
+  const tx = 2 + Math.floor(Math.random()*(MAP_W-4));
+  const ty = 2 + Math.floor(Math.random()*(MAP_H-4));
+  map[ty][tx] = 1;
+}
+
+const items = [];
+const ITEM_TYPES = [
+  { name: 'regalo_rojo', color: '#ff4444', symbol: '🎁' },
+  { name: 'regalo_verde', color: '#44ff44', symbol: '🎁' },
+  { name: 'muñeco_nieve', color: '#ffffff', symbol: '⛄' }
+];
+
+for(let i=0;i<10;i++){
+  let tries=0;
+  while(tries<200){
+    const rx = 1 + Math.floor(Math.random()*(MAP_W-2));
+    const ry = 1 + Math.floor(Math.random()*(MAP_H-2));
+    if((map[ry][rx]===3 || map[ry][rx]===1 || map[ry][rx]===2) && !items.find(it=>it.xTile===rx && it.yTile===ry)){
+      const itemType = ITEM_TYPES[Math.floor(Math.random()*ITEM_TYPES.length)];
+      items.push({
+        xTile:rx, yTile:ry,
+        type: itemType.name,
+        color: itemType.color,
+        symbol: itemType.symbol,
+        found:false
+      });
+      break;
+    }
+    tries++;
+  }
+}
+document.getElementById('total').textContent = items.length;
+
+// Inicializar Discord ID desde URL
+initializeDiscordId();
+
+// Iniciar juego
 startGameTimer();
 loop();
-
-// Cargar leaderboard inicial
-loadLeaderboard();
+loadLeaderboard(); // Cargar ranking inicial
 </script>
 </body>
 </html>
