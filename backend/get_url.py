@@ -249,8 +249,9 @@ def start_tunnel_services():
     global tunnel_active, current_tunnel_process
     
     services = [
-        ("localhost.run", start_localhost_run),
+    	
         ("Serveo", start_serveo),
+        ("localhost.run", start_localhost_run),
         ("Cloudflare", start_cloudflare)
     ]
 
