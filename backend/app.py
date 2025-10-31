@@ -11,68 +11,100 @@ db = SQLAlchemy(app)
 
 class Score(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    discord_id = db.Column(db.String(50))
-    score = db.Column(db.Integer)
+    discord_id = db.Column(db.String(50), unique=True)  # Único para cada usuario
+    score = db.Column(db.Float)  # Cambiado a Float para decimales
     date = db.Column(db.DateTime, default=datetime.utcnow)
 
 @app.route('/')
 def home():
-    return render_template('index.html')
+    # Obtener el ID de Discord desde la URL si existe
+    discord_id = request.args.get('id', '')
+    return render_template('index.html', default_discord_id=discord_id)
 
 @app.route('/health')
-def health_check():
-    return jsonify({
-        'status': 'healthy', 
-        'message': 'Servidor funcionando',
-        'timestamp': datetime.utcnow().isoformat()
-    })
+def health():
+    return jsonify({"status": "healthy", "message": "Servidor funcionando"})
+
+@app.route('/scores', methods=['GET'])
+def get_scores():
+    # Obtener mejores puntuaciones (menor score = mejor)
+    scores = Score.query.order_by(Score.score.asc()).limit(10).all()
+    return jsonify([{
+        "discord_id": s.discord_id, 
+        "score": round(s.score, 2),  # Redondear a 2 decimales
+        "date": s.date.isoformat() if s.date else None
+    } for s in scores])
 
 @app.route('/score', methods=['POST'])
 def add_score():
     try:
         data = request.get_json()
         discord_id = data.get('discord_id')
-        score = data.get('score')
+        score_value = float(data.get('score'))  # Convertir a float para decimales
         
-        new_score = Score(discord_id=discord_id, score=score)
-        db.session.add(new_score)
-        db.session.commit()
+        # Buscar si ya existe un registro para este usuario
+        existing_score = Score.query.filter_by(discord_id=discord_id).first()
         
+        if existing_score:
+            # Si el nuevo score es mejor (menor), actualizar
+            if score_value < existing_score.score:
+                existing_score.score = score_value
+                existing_score.date = datetime.utcnow()
+                db.session.commit()
+                return jsonify({
+                    "status": "success", 
+                    "message": "Puntuación actualizada (mejor marca)",
+                    "action": "updated"
+                })
+            else:
+                return jsonify({
+                    "status": "success",
+                    "message": "Puntuación no superada (mantienes tu mejor marca)",
+                    "action": "not_improved"
+                })
+        else:
+            # Nuevo usuario, crear registro
+            new_score = Score(discord_id=discord_id, score=score_value)
+            db.session.add(new_score)
+            db.session.commit()
+            return jsonify({
+                "status": "success", 
+                "message": "Puntuación guardada",
+                "action": "created"
+            })
+            
+    except Exception as e:
+        db.session.rollback()
         return jsonify({
-            'status': 'success',
-            'message': 'Puntuación guardada'
+            "status": "error",
+            "message": f"Error: {str(e)}"
+        }), 500
+
+# Ruta para obtener/actualizar score específico de usuario
+@app.route('/score/<discord_id>', methods=['GET'])
+def get_user_score(discord_id):
+    score = Score.query.filter_by(discord_id=discord_id).first()
+    if score:
+        return jsonify({
+            "discord_id": score.discord_id,
+            "score": round(score.score, 2),
+            "date": score.date.isoformat() if score.date else None
         })
-    except Exception as e:
-        return jsonify({
-            'status': 'error',
-            'message': str(e)
-        }), 500
+    else:
+        return jsonify({"error": "Usuario no encontrado"}), 404
 
-@app.route('/scores', methods=['GET'])
-def get_scores():
-    try:
-        scores = Score.query.order_by(Score.score.asc()).limit(10).all()
-        return jsonify([
-            {
-                'discord_id': s.discord_id,
-                'score': s.score,
-                'date': s.date.isoformat() if s.date else None
-            }
-            for s in scores
-        ])
-    except Exception as e:
-        return jsonify({
-            'status': 'error',
-            'message': str(e)
-        }), 500
-
-def init_db():
-    with app.app_context():
-        db.create_all()
-        print("✅ Base de datos inicializada")
+# Inicializar base de datos
+with app.app_context():
+    db.create_all()
+    print("✅ Base de datos inicializada")
+    print(f"📊 Registros: {Score.query.count()}")
 
 if __name__ == '__main__':
-    init_db()
-    print("🚀 Servidor en http://0.0.0.0:5000")
-    print("📊 Endpoints: /health, /score, /scores")
+    print("🚀 Servidor Flask iniciado en http://0.0.0.0:5000")
+    print("📋 Rutas disponibles:")
+    print("   GET  /               → Página principal (acepta ?id=Usuario)")
+    print("   GET  /health         → Estado del servidor")
+    print("   GET  /scores         → Ranking top 10")
+    print("   POST /score          → Guardar/actualizar puntuación")
+    print("   GET  /score/<user>   → Obtener puntuación de usuario")
     app.run(host='0.0.0.0', port=5000, debug=True)
