@@ -18,7 +18,8 @@ caza_sombras/
 ├─ backend/
 │   └─ app.py           <-- API Flask para guardar puntuaciones
 │   └─ scores.db        <-- Base de datos SQLite (se genera automáticamente)
-│
+│   └─ templates/
+│      └─ index.html
 └─ README.md            <-- Este archivo
 ```
 
@@ -40,7 +41,7 @@ caza_sombras/
 
 ```bash
 git clone <URL_DEL_REPOSITORIO>
-cd caza_sombras/backend
+cd ./caza_sombras/backend
 ```
 
 2. **Crear entorno virtual y activar**
