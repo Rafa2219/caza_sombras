@@ -33,8 +33,12 @@
   #leaderboard { margin-top: 15px; max-height: 200px; overflow-y: auto; }
   .leaderboard-item { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
   
+  /* Collect button for mobile */
+  #collectBtn { position: absolute; bottom: 18px; right: 18px; display: none; width: 60px; height: 60px; border-radius: 50%; background: var(--accent); color: #000; border: none; font-weight: bold; font-size: 12px; }
+  
   @media (max-width:800px){
-    #mobileControls { display:block; }
+    #mobileControls { display: block; }
+    #collectBtn { display: block; }
     canvas { width:92vw !important; height: calc(92vw * (9/16)) !important; }
   }
   html, body, canvas { -webkit-touch-callout: none; -webkit-user-select:none; -ms-user-select:none; user-select:none; }
@@ -60,7 +64,7 @@
 
   <div style="max-width:900px; width:100%; display:flex; justify-content:space-between; gap:12px;">
     <div class="panel" style="flex:1">
-      <div><strong>Controles:</strong> WASD / Flechas. Soporta múltiples teclas. Toca movimientos en móvil con D-Pad.</div>
+      <div><strong>Controles:</strong> WASD / Flechas para mover. Tecla E para recoger objetos.</div>
     </div>
     <div class="panel" style="width:300px; justify-content:space-between;">
       <div>Tiempo: <span id="timer">0</span>s</div>
@@ -69,7 +73,7 @@
   </div>
 </div>
 
-<!-- Mobile D-Pad -->
+<!-- Mobile Controls -->
 <div id="mobileControls">
   <div class="dpad" id="dpad">
     <button data-dir="nw"></button><button data-dir="north"></button><button data-dir="ne"></button>
@@ -77,6 +81,9 @@
     <button data-dir="sw"></button><button data-dir="south"></button><button data-dir="se"></button>
   </div>
 </div>
+
+<!-- Collect Button for Mobile -->
+<button id="collectBtn">RECOGER</button>
 
 <!-- Score Submission Modal -->
 <div id="scoreModal" class="modal">
@@ -106,7 +113,7 @@
 
 <script>
 // Configuración del backend
-const API_BASE_URL = window.location.origin; // Mismo origen que la página
+const API_BASE_URL = window.location.origin;
 const SCORE_ENDPOINT = `${API_BASE_URL}/score`;
 const SCORES_ENDPOINT = `${API_BASE_URL}/scores`;
 
@@ -116,14 +123,12 @@ const ctx = canvas.getContext('2d');
 // GAME CONFIG
 const TILE = 32;
 const MAP_W = 20, MAP_H = 11;
-const VIEW_W = 20, VIEW_H = 11;
-const SCALE = 2;
 const PLAYER_SPEED = 2.2;
-const SPRITE_SIZE = 24;
 let foundCount = 0;
 let gameTime = 0;
 let gameTimer = null;
 let gameCompleted = false;
+let nearItem = null; // Item cercano que se puede recoger
 
 // player state
 const player = {
@@ -153,9 +158,13 @@ for(let i=0;i<14;i++){
   map[ty][tx] = 1;
 }
 
-// Hidden items
+// Hidden items - ¡AHORA VISIBLES!
 const items = [];
-const ITEM_TYPES = ['regalo_rojo','regalo_verde','muñeco_nieve'];
+const ITEM_TYPES = [
+  { name: 'regalo_rojo', color: '#ff4444', symbol: '🎁' },
+  { name: 'regalo_verde', color: '#44ff44', symbol: '🎁' },
+  { name: 'muñeco_nieve', color: '#ffffff', symbol: '⛄' }
+];
 
 for(let i=0;i<10;i++){
   let tries=0;
@@ -163,16 +172,21 @@ for(let i=0;i<10;i++){
     const rx = 1 + Math.floor(Math.random()*(MAP_W-2));
     const ry = 1 + Math.floor(Math.random()*(MAP_H-2));
     if((map[ry][rx]===3 || map[ry][rx]===1 || map[ry][rx]===2) && !items.find(it=>it.xTile===rx && it.yTile===ry)){
-      items.push({xTile:rx,yTile:ry,type: ITEM_TYPES[Math.floor(Math.random()*ITEM_TYPES.length)],found:false});
+      const itemType = ITEM_TYPES[Math.floor(Math.random()*ITEM_TYPES.length)];
+      items.push({
+        xTile:rx,
+        yTile:ry,
+        type: itemType.name,
+        color: itemType.color,
+        symbol: itemType.symbol,
+        found:false
+      });
       break;
     }
     tries++;
   }
 }
 document.getElementById('total').textContent = items.length;
-
-// Camera
-const camera = {x:0,y:0};
 
 // Timer functions
 function startGameTimer() {
@@ -190,7 +204,7 @@ function stopGameTimer() {
   }
 }
 
-// API Communication functions
+// API Communication functions - CORREGIDO
 async function submitScore(discordId, score) {
   try {
     const response = await fetch(SCORE_ENDPOINT, {
@@ -223,9 +237,19 @@ async function submitScore(discordId, score) {
 async function loadLeaderboard() {
   try {
     const response = await fetch(SCORES_ENDPOINT);
-    const scores = await response.json();
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
     
+    const scores = await response.json();
     const leaderboardElement = document.getElementById('leaderboard');
+    
+    // Verificar si scores es un array
+    if (!Array.isArray(scores)) {
+      console.error('La respuesta no es un array:', scores);
+      leaderboardElement.innerHTML = '<div style="text-align:center; padding:20px; color:#ff6b6b;">Error en el formato de datos</div>';
+      return;
+    }
     
     if (scores.length === 0) {
       leaderboardElement.innerHTML = '<div style="text-align:center; padding:20px;">No hay puntuaciones aún</div>';
@@ -234,21 +258,29 @@ async function loadLeaderboard() {
     
     let leaderboardHTML = '';
     scores.forEach((score, index) => {
-      const date = new Date(score.date).toLocaleDateString();
+      // Verificar que score tenga las propiedades esperadas
+      if (!score || typeof score !== 'object') {
+        return; // Saltar elementos inválidos
+      }
+      
+      const date = score.date ? new Date(score.date).toLocaleDateString() : 'Fecha desconocida';
+      const discordId = score.discord_id || 'Usuario desconocido';
+      const scoreValue = score.score !== undefined ? score.score : 'N/A';
+      
       leaderboardHTML += `
         <div class="leaderboard-item">
-          <span>${index + 1}. ${score.discord_id}</span>
-          <span>${score.score} pts</span>
+          <span>${index + 1}. ${discordId}</span>
+          <span>${scoreValue} seg</span>
           <small>${date}</small>
         </div>
       `;
     });
     
-    leaderboardElement.innerHTML = leaderboardHTML;
+    leaderboardElement.innerHTML = leaderboardHTML || '<div style="text-align:center; padding:20px;">No hay puntuaciones válidas</div>';
   } catch (error) {
     console.error('Error loading leaderboard:', error);
     document.getElementById('leaderboard').innerHTML = 
-      '<div style="text-align:center; padding:20px; color:#ff6b6b;">Error cargando el ranking</div>';
+      '<div style="text-align:center; padding:20px; color:#ff6b6b;">Error cargando el ranking: ' + error.message + '</div>';
   }
 }
 
@@ -276,6 +308,53 @@ function showLeaderboard() {
   document.getElementById('leaderboardModal').style.display = 'flex';
 }
 
+// COLLECTION MECHANICS - NUEVO SISTEMA
+function checkNearbyItems() {
+  const pTileX = Math.floor(player.x / TILE);
+  const pTileY = Math.floor(player.y / TILE);
+  
+  nearItem = null;
+  
+  items.forEach(it => {
+    if (!it.found) {
+      const distance = Math.abs(it.xTile - pTileX) + Math.abs(it.yTile - pTileY);
+      if (distance <= 1) { // Está adyacente al item
+        nearItem = it;
+      }
+    }
+  });
+  
+  // Actualizar UI para mostrar que hay un item cerca
+  if (nearItem) {
+    document.getElementById('message').textContent = 'Presiona E para recoger';
+    document.getElementById('message').style.color = '#ffd86b';
+  } else {
+    document.getElementById('message').textContent = '';
+  }
+}
+
+function collectItem() {
+  if (nearItem && !nearItem.found) {
+    nearItem.found = true;
+    foundCount++;
+    document.getElementById('found').textContent = foundCount;
+    addInventoryItem(nearItem.type);
+    
+    // Reset nearItem
+    nearItem = null;
+    document.getElementById('message').textContent = '';
+    
+    // Check if game is completed
+    if (foundCount === items.length && !gameCompleted) {
+      gameCompleted = true;
+      stopGameTimer();
+      setTimeout(() => {
+        showScoreModal();
+      }, 1000);
+    }
+  }
+}
+
 // Event listeners for modals
 document.getElementById('submitScore').addEventListener('click', async () => {
   const discordId = document.getElementById('discordId').value.trim();
@@ -299,6 +378,9 @@ document.getElementById('leaderboardBtn').addEventListener('click', showLeaderbo
 document.getElementById('closeLeaderboard').addEventListener('click', () => {
   document.getElementById('leaderboardModal').style.display = 'none';
 });
+
+// Collect button events
+document.getElementById('collectBtn').addEventListener('click', collectItem);
 
 // Close modals when clicking outside
 document.querySelectorAll('.modal').forEach(modal => {
@@ -382,10 +464,17 @@ function isPassable(tx,ty){
   return !(t===1 || t===2 || t===5);
 }
 
-// Input handling
+// Input handling - AÑADIDO TECLA E PARA RECOGER
 window.addEventListener('keydown', (e) => {
   const k = e.key.toLowerCase();
   pressedKeys.add(k);
+  
+  // Tecla E para recoger
+  if (k === 'e') {
+    e.preventDefault();
+    collectItem();
+  }
+  
   if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault();
 });
 
@@ -482,87 +571,40 @@ function update(){
     if(player.animTick>12){ player.animTick=0; player.animFrame=0; }
   }
 
-  const pTileX = Math.floor(player.x / TILE);
-  const pTileY = Math.floor(player.y / TILE);
-  
-  items.forEach(it=>{
-    if(!it.found && it.xTile===pTileX && it.yTile===pTileY){
-      const centerX = it.xTile*TILE + TILE/2;
-      const centerY = it.yTile*TILE + TILE/2;
-      const dxC = Math.abs(centerX - player.x);
-      const dyC = Math.abs(centerY - player.y);
-      if(dxC < 12 && dyC < 12){
-        it.found = true;
-        foundCount++;
-        document.getElementById('found').textContent = foundCount;
-        addInventoryItem(it.type);
-        
-        // Check if game is completed
-        if (foundCount === items.length && !gameCompleted) {
-          gameCompleted = true;
-          stopGameTimer();
-          setTimeout(() => {
-            showScoreModal();
-          }, 1000);
-        }
-      }
-    }
-  });
+  // Check for nearby items (pero no recoger automáticamente)
+  checkNearbyItems();
 }
 
 function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
+  // Draw map
   for(let y=0;y<MAP_H;y++){
     for(let x=0;x<MAP_W;x++){
-      const t = map[y][x];
-      const px = x*TILE, py = y*TILE;
-      switch(t){
-        case 0:
-          ctx.fillStyle = '#083b1f';
-          ctx.fillRect(px,py,TILE,TILE);
-          break;
-        case 1:
-          ctx.fillStyle = '#4b2c12';
-          ctx.fillRect(px+TILE*0.45,py+TILE*0.6,TILE*0.1,TILE*0.4);
-          ctx.fillStyle = '#0d5b2e';
-          ctx.beginPath();
-          ctx.moveTo(px+TILE*0.5, py+4);
-          ctx.lineTo(px+4, py+TILE*0.65);
-          ctx.lineTo(px+TILE-4, py+TILE*0.65);
-          ctx.closePath();
-          ctx.fill();
-          ctx.fillStyle = '#ecf7ff';
-          ctx.fillRect(px+6,py+6,6,2);
-          break;
-        case 2:
-          ctx.fillStyle = '#6f6f6f';
-          ctx.fillRect(px+6,py+10,TILE-12,TILE-8);
-          break;
-        case 3:
-          ctx.fillStyle = '#0f5e2a';
-          ctx.fillRect(px+4,py+8,TILE-8,TILE-6);
-          ctx.fillStyle = '#ff293b';
-          ctx.fillRect(px+8,py+12,2,2);
-          break;
-        case 4:
-          ctx.fillStyle = '#dfefff';
-          ctx.fillRect(px,py,TILE,TILE);
-          break;
-        case 5:
-          ctx.fillStyle = '#073a6b';
-          ctx.fillRect(px,py,TILE,TILE);
-          break;
-      }
+      drawTile(ctx, x, y, map[y][x]);
     }
   }
 
-  items.forEach(it=>{
-    const px = it.xTile*TILE + TILE/2;
-    const py = it.yTile*TILE + TILE/2;
-    if(it.found){
+  // Draw items - ¡AHORA VISIBLES!
+  items.forEach(it => {
+    const px = it.xTile * TILE + TILE/2;
+    const py = it.yTile * TILE + TILE/2;
+    
+    if(!it.found) {
+      // Draw item as visible object
+      ctx.fillStyle = it.color;
+      ctx.fillRect(px-6, py-6, 12, 12);
+      
+      // Draw symbol
+      ctx.fillStyle = '#000';
+      ctx.font = '10px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(it.symbol, px, py);
+    } else {
+      // Draw collected item as sparkle
       ctx.fillStyle = '#ffd86b';
-      ctx.fillRect(px-4,py-4,8,8);
+      ctx.fillRect(px-4, py-4, 8, 8);
     }
   });
 
@@ -576,8 +618,12 @@ function addInventoryItem(type){
   div.textContent = type;
   inv.appendChild(div);
 
-  setTimeout(()=>div.style.transform='scale(1.05)',50);
-  setTimeout(()=>div.style.transform='',380);
+  // Animation
+  setTimeout(() => div.style.transform='scale(1.05)',50);
+  setTimeout(() => div.style.transform='',380);
+  
+  // Show message
+  showMessage(`¡Encontraste ${type}!`, 'success');
 }
 
 function loop(){
