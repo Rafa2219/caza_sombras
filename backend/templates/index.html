@@ -459,11 +459,12 @@ for(let i=0;i<10;i++){
   }
 }
 document.getElementById('total').textContent = items.length;
-// ========== FUNCIONES DE API MEJORADAS ==========
+
+
+
+// ========== FUNCIONES DE API ==========
 async function submitScore(discordId, score) {
   try {
-    console.log(`📤 Enviando puntuación: ${discordId} - ${score} segundos`);
-    
     const response = await fetch('/score', {
       method: 'POST',
       headers: {
@@ -475,16 +476,14 @@ async function submitScore(discordId, score) {
       })
     });
 
-    // Verificar si la respuesta es JSON
+    // Manejar tanto JSON como texto
+    let data;
     const contentType = response.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/json')) {
-      throw new Error(`Respuesta no JSON: ${response.status} ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.message || `Error ${response.status}`);
+    if (contentType && contentType.includes('application/json')) {
+      data = await response.json();
+    } else {
+      const text = await response.text();
+      throw new Error(`Respuesta inesperada: ${text}`);
     }
 
     if (data.status === 'success') {
@@ -495,7 +494,7 @@ async function submitScore(discordId, score) {
       return false;
     }
   } catch (error) {
-    console.error('❌ Error enviando puntuación:', error);
+    console.error('Error enviando puntuación:', error);
     showMessage(`Error: ${error.message}`, 'error');
     return false;
   }
@@ -503,25 +502,25 @@ async function submitScore(discordId, score) {
 
 async function loadLeaderboard() {
   try {
-    console.log('📥 Cargando leaderboard...');
     const response = await fetch('/scores');
     
     if (!response.ok) {
-      throw new Error(`Error HTTP ${response.status}: ${response.statusText}`);
+      throw new Error(`Error ${response.status}: ${response.statusText}`);
     }
-    
-    // Verificar si la respuesta es JSON
+
+    // Manejar tanto JSON como texto
+    let scores;
     const contentType = response.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/json')) {
-      throw new Error(`Respuesta no JSON: ${response.status} ${response.statusText}`);
+    if (contentType && contentType.includes('application/json')) {
+      scores = await response.json();
+    } else {
+      const text = await response.text();
+      throw new Error(`Respuesta inesperada: ${text}`);
     }
-    
-    const scores = await response.json();
+
     const leaderboardElement = document.getElementById('leaderboard');
     
-    // Verificar si la respuesta es un array
     if (!Array.isArray(scores)) {
-      console.warn('⚠️ La respuesta no es un array:', scores);
       leaderboardElement.innerHTML = '<div style="text-align:center; padding:20px;">Formato de datos inesperado</div>';
       return;
     }
@@ -533,39 +532,43 @@ async function loadLeaderboard() {
     
     let leaderboardHTML = '';
     scores.forEach((score, index) => {
-      const date = score.date ? new Date(score.date).toLocaleDateString('es-ES') : 'Fecha desconocida';
-      const discordId = score.discord_id || 'Anónimo';
-      const scoreValue = score.score !== undefined ? score.score : 'N/A';
-      
+      const date = score.date ? new Date(score.date).toLocaleDateString() : 'Fecha desconocida';
       leaderboardHTML += `
         <div class="leaderboard-item">
-          <span>${index + 1}. ${discordId}</span>
-          <span>${scoreValue} seg</span>
+          <span>${index + 1}. ${score.discord_id || 'Anónimo'}</span>
+          <span>${score.score} seg</span>
           <small>${date}</small>
         </div>
       `;
     });
     
     leaderboardElement.innerHTML = leaderboardHTML;
-    console.log(`✅ Leaderboard cargado: ${scores.length} registros`);
     
   } catch (error) {
-    console.error('❌ Error cargando leaderboard:', error);
+    console.error('Error cargando leaderboard:', error);
     document.getElementById('leaderboard').innerHTML = 
       `<div style="text-align:center; padding:20px; color:#ff6b6b;">
-        Error cargando ranking: ${error.message}
-        <br><small>Intenta recargar la página</small>
+        Error: ${error.message}
        </div>`;
   }
 }
 
-// Función para probar la conexión
+// Función de test mejorada
 async function testConnection() {
   try {
-    console.log('🔍 Probando conexión con el servidor...');
     const response = await fetch('/health');
-    const data = await response.json();
-    console.log('✅ Conexión exitosa:', data);
+    
+    // Manejar tanto JSON como texto
+    let data;
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      data = await response.json();
+      console.log('✅ Conexión JSON exitosa:', data);
+    } else {
+      data = await response.text();
+      console.log('⚠️ Conexión exitosa (texto):', data);
+    }
+    
     return true;
   } catch (error) {
     console.error('❌ Error de conexión:', error);
@@ -573,11 +576,11 @@ async function testConnection() {
   }
 }
 
-// Llamar a testConnection al cargar la página
+// Test al cargar
 window.addEventListener('load', () => {
   testConnection();
+  loadLeaderboard();
 });
-
 // ========== FUNCIONES DEL JUEGO (mantener tu código existente) ==========
 function startGameTimer() {
   gameTime = 0;
