@@ -22,11 +22,21 @@
   #mobileControls { position: absolute; bottom:18px; left:18px; display:none; gap:8px; }
   .dpad { width:140px; height:140px; background: rgba(0,0,0,0.25); border-radius:12px; display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,1fr); }
   .dpad button { background:transparent; border:0; color:transparent; }
+  
+  /* Modal styles */
+  .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; }
+  .modal-content { background: var(--panel); padding: 20px; border-radius: 12px; max-width: 400px; width: 90%; text-align: center; }
+  .modal input { width: 80%; padding: 10px; margin: 10px 0; border: none; border-radius: 6px; background: rgba(255,255,255,0.1); color: var(--text); }
+  .modal-buttons { display: flex; gap: 10px; justify-content: center; margin-top: 15px; }
+  
+  /* Leaderboard styles */
+  #leaderboard { margin-top: 15px; max-height: 200px; overflow-y: auto; }
+  .leaderboard-item { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
+  
   @media (max-width:800px){
     #mobileControls { display:block; }
-    canvas { width:92vw !important; height: calc(92vw * (9/16)) !important; } /* keep visual ratio */
+    canvas { width:92vw !important; height: calc(92vw * (9/16)) !important; }
   }
-  /* Prevent double-tap zoom on iOS */
   html, body, canvas { -webkit-touch-callout: none; -webkit-user-select:none; -ms-user-select:none; user-select:none; }
 </style>
 </head>
@@ -42,10 +52,10 @@
       <div id="status">Objetos: <span id="found">0</span>/<span id="total">0</span></div>
       <div id="inventory" style="margin-left:12px"></div>
       <button id="fullscreenBtn" class="button" style="margin-left:12px">Pantalla completa</button>
+      <button id="leaderboardBtn" class="button" style="margin-left:12px">Ranking</button>
     </div>
   </div>
 
-  <!-- Canvas: usamos un tamaño interno pequeño que escala (pixel art) -->
   <canvas id="game" width="640" height="360" style="width:960px; height:540px;"></canvas>
 
   <div style="max-width:900px; width:100%; display:flex; justify-content:space-between; gap:12px;">
@@ -53,7 +63,7 @@
       <div><strong>Controles:</strong> WASD / Flechas. Soporta múltiples teclas. Toca movimientos en móvil con D-Pad.</div>
     </div>
     <div class="panel" style="width:300px; justify-content:space-between;">
-      <div>Tiempo: <span id="timer">∞</span></div>
+      <div>Tiempo: <span id="timer">0</span>s</div>
       <div id="message" style="font-weight:700"></div>
     </div>
   </div>
@@ -68,45 +78,66 @@
   </div>
 </div>
 
+<!-- Score Submission Modal -->
+<div id="scoreModal" class="modal">
+  <div class="modal-content">
+    <h3>¡Felicidades! 🎉</h3>
+    <p>Has encontrado todos los regalos en <span id="finalTime">0</span> segundos</p>
+    <input type="text" id="discordId" placeholder="Tu ID de Discord" maxlength="50">
+    <div class="modal-buttons">
+      <button class="button" id="submitScore">Guardar Puntaje</button>
+      <button class="button" style="background:#666" id="cancelScore">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Leaderboard Modal -->
+<div id="leaderboardModal" class="modal">
+  <div class="modal-content">
+    <h3>🏆 Mejores Puntuaciones</h3>
+    <div id="leaderboard">
+      <div style="text-align:center; padding:20px;">Cargando...</div>
+    </div>
+    <div class="modal-buttons">
+      <button class="button" id="closeLeaderboard">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <script>
-/*
-  La Búsqueda Navideña — Pixel Adventure
-  - Pixel-art style (drawn procedurally here; sustituir por sprites en comentarios)
-  - Simultaneous key handling using `pressedKeys` set
-  - Fullscreen button
-  - Disable double-tap zoom via viewport meta and touch-action CSS
-  - Hidden objects in bushes/trees/rocks; collect on overlap
-  - Movement & idle animations (frame based)
-  - Placeholders/comments where to add audio assets
-*/
+// Configuración del backend
+const API_BASE_URL = window.location.origin; // Mismo origen que la página
+const SCORE_ENDPOINT = `${API_BASE_URL}/score`;
+const SCORES_ENDPOINT = `${API_BASE_URL}/scores`;
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 
 // GAME CONFIG
-const TILE = 32;                  // pixels per tile (internal)
-const MAP_W = 20, MAP_H = 11;     // grid size
-const VIEW_W = 20, VIEW_H = 11;   // camera tiles
-const SCALE = 2;                  // drawn scale (canvas CSS scales too)
-const PLAYER_SPEED = 2.2;         // pixels per frame (internal pixel scale)
-const SPRITE_SIZE = 24;           // sprite frame size (internal)
+const TILE = 32;
+const MAP_W = 20, MAP_H = 11;
+const VIEW_W = 20, VIEW_H = 11;
+const SCALE = 2;
+const PLAYER_SPEED = 2.2;
+const SPRITE_SIZE = 24;
 let foundCount = 0;
+let gameTime = 0;
+let gameTimer = null;
+let gameCompleted = false;
 
-// player state / animation
+// player state
 const player = {
-  x: TILE*2 + TILE/2, y: TILE*2 + TILE/2, // internal pixels
+  x: TILE*2 + TILE/2, y: TILE*2 + TILE/2,
   vx:0, vy:0,
-  dir: 'down',   // 'up','down','left','right'
+  dir: 'down',
   animFrame:0,
   animTick:0,
   moving:false
 };
 
-// pressed keys set for simultaneous keys
 const pressedKeys = new Set();
 
-// simple tile map: values indicate tile types
-// 0 = grass, 1 = tree, 2 = rock, 3 = bush, 4 = snow path, 5 = water (impassable)
+// Game map
 const map = [];
 for(let y=0;y<MAP_H;y++){
   map[y] = [];
@@ -115,18 +146,17 @@ for(let y=0;y<MAP_H;y++){
     else map[y][x] = Math.random() < 0.05 ? 2 : (Math.random() < 0.12 ? 3 : (Math.random() < 0.02 ? 5 : 0));
   }
 }
-// add some decorated trees and objects to make it feel christmassy
+
 for(let i=0;i<14;i++){
   const tx = 2 + Math.floor(Math.random()*(MAP_W-4));
   const ty = 2 + Math.floor(Math.random()*(MAP_H-4));
-  map[ty][tx] = 1; // tree
+  map[ty][tx] = 1;
 }
 
-// hidden items list
-const items = []; // {xTile,yTile,type,found}
+// Hidden items
+const items = [];
 const ITEM_TYPES = ['regalo_rojo','regalo_verde','muñeco_nieve'];
 
-// populate items hidden in bushes/near rocks/trees
 for(let i=0;i<10;i++){
   let tries=0;
   while(tries<200){
@@ -141,98 +171,224 @@ for(let i=0;i<10;i++){
 }
 document.getElementById('total').textContent = items.length;
 
-// CAMERA
+// Camera
 const camera = {x:0,y:0};
 
-function setCanvasSize(){
-  // keep internal resolution for pixel art and then scale with CSS
-  // internal already set to 640x360. You can adjust CSS width/height for visual size
-}
-setCanvasSize();
-
-// Utility: draw rounded pixel rect (used as placeholder sprites)
-function drawPixelRect(ctx,x,y,w,h,color){
-  ctx.fillStyle=color; ctx.fillRect(Math.round(x),Math.round(y),w,h);
+// Timer functions
+function startGameTimer() {
+  gameTime = 0;
+  gameTimer = setInterval(() => {
+    gameTime++;
+    document.getElementById('timer').textContent = gameTime;
+  }, 1000);
 }
 
-// PLAYER RENDER: replace with sprite sheet if you have images
+function stopGameTimer() {
+  if (gameTimer) {
+    clearInterval(gameTimer);
+    gameTimer = null;
+  }
+}
+
+// API Communication functions
+async function submitScore(discordId, score) {
+  try {
+    const response = await fetch(SCORE_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        discord_id: discordId,
+        score: score
+      })
+    });
+
+    const result = await response.json();
+    
+    if (result.status === 'success') {
+      showMessage('¡Puntaje guardado exitosamente! 🎉', 'success');
+      return true;
+    } else {
+      showMessage(result.message || 'Error al guardar puntaje', 'error');
+      return false;
+    }
+  } catch (error) {
+    console.error('Error submitting score:', error);
+    showMessage('Error de conexión al servidor', 'error');
+    return false;
+  }
+}
+
+async function loadLeaderboard() {
+  try {
+    const response = await fetch(SCORES_ENDPOINT);
+    const scores = await response.json();
+    
+    const leaderboardElement = document.getElementById('leaderboard');
+    
+    if (scores.length === 0) {
+      leaderboardElement.innerHTML = '<div style="text-align:center; padding:20px;">No hay puntuaciones aún</div>';
+      return;
+    }
+    
+    let leaderboardHTML = '';
+    scores.forEach((score, index) => {
+      const date = new Date(score.date).toLocaleDateString();
+      leaderboardHTML += `
+        <div class="leaderboard-item">
+          <span>${index + 1}. ${score.discord_id}</span>
+          <span>${score.score} pts</span>
+          <small>${date}</small>
+        </div>
+      `;
+    });
+    
+    leaderboardElement.innerHTML = leaderboardHTML;
+  } catch (error) {
+    console.error('Error loading leaderboard:', error);
+    document.getElementById('leaderboard').innerHTML = 
+      '<div style="text-align:center; padding:20px; color:#ff6b6b;">Error cargando el ranking</div>';
+  }
+}
+
+// UI Helper functions
+function showMessage(text, type = 'info') {
+  const messageElement = document.getElementById('message');
+  messageElement.textContent = text;
+  messageElement.style.color = type === 'error' ? '#ff6b6b' : 
+                              type === 'success' ? '#51cf66' : '#ffd86b';
+  
+  setTimeout(() => {
+    messageElement.textContent = '';
+  }, 3000);
+}
+
+function showScoreModal() {
+  document.getElementById('finalTime').textContent = gameTime;
+  document.getElementById('scoreModal').style.display = 'flex';
+  document.getElementById('discordId').value = '';
+  document.getElementById('discordId').focus();
+}
+
+function showLeaderboard() {
+  loadLeaderboard();
+  document.getElementById('leaderboardModal').style.display = 'flex';
+}
+
+// Event listeners for modals
+document.getElementById('submitScore').addEventListener('click', async () => {
+  const discordId = document.getElementById('discordId').value.trim();
+  
+  if (!discordId) {
+    showMessage('Por favor ingresa tu ID de Discord', 'error');
+    return;
+  }
+  
+  const success = await submitScore(discordId, gameTime);
+  if (success) {
+    document.getElementById('scoreModal').style.display = 'none';
+  }
+});
+
+document.getElementById('cancelScore').addEventListener('click', () => {
+  document.getElementById('scoreModal').style.display = 'none';
+});
+
+document.getElementById('leaderboardBtn').addEventListener('click', showLeaderboard);
+document.getElementById('closeLeaderboard').addEventListener('click', () => {
+  document.getElementById('leaderboardModal').style.display = 'none';
+});
+
+// Close modals when clicking outside
+document.querySelectorAll('.modal').forEach(modal => {
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.style.display = 'none';
+    }
+  });
+});
+
+// Player drawing function
 function drawPlayer(ctx,px,py){
-  // px,py center internal pixels
   const f = player.animFrame;
-  // choose color by animation frame for simple pixel effect
   const body = '#ffdf80';
   const hat = '#c62828';
   const muff = '#ffffff';
-  // body
+  
   ctx.fillStyle = body;
   ctx.fillRect(px-8, py-12, 16, 20);
-  // simple idle/move legs animation
+  
   ctx.fillStyle = (player.moving && f%2===0) ? '#874b2f' : '#6b3b21';
   ctx.fillRect(px-6, py+6, 6, 6);
   ctx.fillRect(px+0, py+6, 6, 6);
-  // head
+  
   ctx.fillStyle = '#ffd8b6';
   ctx.fillRect(px-7, py-20, 14, 12);
-  // hat (christmas)
+  
   ctx.fillStyle = hat;
   ctx.fillRect(px-10, py-26, 20, 6);
-  // pompom
+  
   ctx.fillStyle = muff;
   ctx.fillRect(px+6, py-28, 4, 4);
 }
 
-// Draw a tile
+// Tile drawing function
 function drawTile(ctx,tx,ty,tile){
   const px = tx*TILE, py = ty*TILE;
   switch(tile){
-    case 0: // grass
+    case 0:
       ctx.fillStyle = '#1e6b3a';
       ctx.fillRect(px,py,TILE,TILE);
-      // snow patches
       if(Math.random()<0.03){ ctx.fillStyle='#e6f7ff'; ctx.fillRect(px+4,py+4,6,6); }
       break;
-    case 1: // tree
-      // trunk
-      ctx.fillStyle='#6a3819';
-      ctx.fillRect(px+TILE*0.4,py+TILE*0.6, T I LE*0.2 ?  ? ,  ? );
+    case 1:
+      ctx.fillStyle = '#4b2c12';
+      ctx.fillRect(px+TILE*0.45,py+TILE*0.6,TILE*0.1,TILE*0.4);
+      ctx.fillStyle = '#0d5b2e';
+      ctx.beginPath();
+      ctx.moveTo(px+TILE*0.5, py+4);
+      ctx.lineTo(px+4, py+TILE*0.65);
+      ctx.lineTo(px+TILE-4, py+TILE*0.65);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#ecf7ff';
+      ctx.fillRect(px+6,py+6,6,2);
       break;
-    case 2: // rock
-      ctx.fillStyle='#7d7d7d';
-      ctx.fillRect(px+6,py+10,TILE-12,TILE-10);
+    case 2:
+      ctx.fillStyle = '#6f6f6f';
+      ctx.fillRect(px+6,py+10,TILE-12,TILE-8);
       break;
-    case 3: // bush
-      ctx.fillStyle='#0f6b2f';
+    case 3:
+      ctx.fillStyle = '#0f5e2a';
       ctx.fillRect(px+4,py+8,TILE-8,TILE-6);
+      ctx.fillStyle = '#ff293b';
+      ctx.fillRect(px+8,py+12,2,2);
       break;
-    case 4: // snow path
-      ctx.fillStyle='#f2f7ff';
+    case 4:
+      ctx.fillStyle = '#dfefff';
       ctx.fillRect(px,py,TILE,TILE);
       break;
-    case 5: // water
-      ctx.fillStyle='#073a6b';
+    case 5:
+      ctx.fillStyle = '#073a6b';
       ctx.fillRect(px,py,TILE,TILE);
       break;
   }
 }
 
-/* NOTE: Above I intentionally left a tiny glitch for tree trunk drawing lines (you'll replace with sprites).
-   Replace the drawTile logic with images if you prefer pixel sprites.
-*/
-
-// Collision detection for tile passability
 function isPassable(tx,ty){
   if(tx<0||ty<0||tx>=MAP_W||ty>=MAP_H) return false;
   const t = map[ty][tx];
-  return !(t===1 || t===2 || t===5); // trees, rocks, water are impassable
+  return !(t===1 || t===2 || t===5);
 }
 
 // Input handling
 window.addEventListener('keydown', (e) => {
   const k = e.key.toLowerCase();
   pressedKeys.add(k);
-  // prevent arrow keys from scrolling
   if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault();
 });
+
 window.addEventListener('keyup', (e) => {
   pressedKeys.delete(e.key.toLowerCase());
 });
@@ -244,14 +400,15 @@ document.getElementById('dpad').addEventListener('touchstart', (ev)=>{
   if(!btn) return;
   handleDpad(btn.dataset.dir, true);
 });
+
 document.getElementById('dpad').addEventListener('touchend', (ev)=>{
   ev.preventDefault();
-  handleDpad(null, false); // stop movement
+  handleDpad(null, false);
 });
+
 function handleDpad(dir, down){
   pressedKeys.clear();
   if(down && dir){
-    // map directions to key set
     const mapDir = {
       'north': 'arrowup', 'south':'arrowdown', 'west':'arrowleft','east':'arrowright',
       'nw':'q','ne':'e','sw':'z','se':'c'
@@ -260,7 +417,7 @@ function handleDpad(dir, down){
   }
 }
 
-// Disable double tap zoom (additional measure)
+// Disable double tap zoom
 let lastTouch = 0;
 document.addEventListener('touchend', function (e) {
   const now = Date.now();
@@ -281,26 +438,28 @@ fsBtn.addEventListener('click', async ()=>{
 
 // Game loop
 function update(){
-  // compute movement vector from pressedKeys
+  if (gameCompleted) return;
+
   let dx=0, dy=0;
   if(pressedKeys.has('arrowup') || pressedKeys.has('w')) dy -= 1;
   if(pressedKeys.has('arrowdown') || pressedKeys.has('s')) dy += 1;
   if(pressedKeys.has('arrowleft') || pressedKeys.has('a')) dx -= 1;
   if(pressedKeys.has('arrowright') || pressedKeys.has('d')) dx += 1;
-  // normalize diagonal
+  
   if(dx!==0 && dy!==0){
-    dx *= Math.SQRT1_2; dy *= Math.SQRT1_2;
+    dx *= Math.SQRT1_2;
+    dy *= Math.SQRT1_2;
   }
+  
   player.vx = dx * PLAYER_SPEED;
   player.vy = dy * PLAYER_SPEED;
   player.moving = (dx!==0 || dy!==0);
 
-  // try to move with collision at tile level: compute next pos and check tile occupancy
   const nextX = player.x + player.vx;
   const nextY = player.y + player.vy;
   const nextTileX = Math.floor((nextX)/TILE);
   const nextTileY = Math.floor((nextY)/TILE);
-  // check all relevant tiles around player for simple collision
+  
   if(isPassable(Math.floor((nextX-8)/TILE), Math.floor((player.y-8)/TILE)) &&
      isPassable(Math.floor((nextX+8)/TILE), Math.floor((player.y+8)/TILE))){
     player.x = nextX;
@@ -310,13 +469,11 @@ function update(){
     player.y = nextY;
   }
 
-  // determine direction for sprite
   if(player.vx>0) player.dir='right';
   else if(player.vx<0) player.dir='left';
   else if(player.vy>0) player.dir='down';
   else if(player.vy<0) player.dir='up';
 
-  // animation ticks
   if(player.moving){
     player.animTick++;
     if(player.animTick>6){ player.animTick=0; player.animFrame=(player.animFrame+1)%4; }
@@ -325,12 +482,11 @@ function update(){
     if(player.animTick>12){ player.animTick=0; player.animFrame=0; }
   }
 
-  // check for item collection: if player's tile has an item and within small radius
   const pTileX = Math.floor(player.x / TILE);
   const pTileY = Math.floor(player.y / TILE);
+  
   items.forEach(it=>{
     if(!it.found && it.xTile===pTileX && it.yTile===pTileY){
-      // check precise overlap (center distance)
       const centerX = it.xTile*TILE + TILE/2;
       const centerY = it.yTile*TILE + TILE/2;
       const dxC = Math.abs(centerX - player.x);
@@ -340,78 +496,79 @@ function update(){
         foundCount++;
         document.getElementById('found').textContent = foundCount;
         addInventoryItem(it.type);
-        // placeholder: play sound when found
-        // playSound('collect.mp3');
+        
+        // Check if game is completed
+        if (foundCount === items.length && !gameCompleted) {
+          gameCompleted = true;
+          stopGameTimer();
+          setTimeout(() => {
+            showScoreModal();
+          }, 1000);
+        }
       }
     }
   });
 }
 
-// draw loop
 function draw(){
-  // clear full canvas
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  // draw map tiles
   for(let y=0;y<MAP_H;y++){
     for(let x=0;x<MAP_W;x++){
-      // basic tile rendering
       const t = map[y][x];
       const px = x*TILE, py = y*TILE;
       switch(t){
         case 0:
-          ctx.fillStyle = '#083b1f'; ctx.fillRect(px,py,TILE,TILE);
-          // small sparkle: snow
+          ctx.fillStyle = '#083b1f';
+          ctx.fillRect(px,py,TILE,TILE);
           break;
         case 1:
-          // tree (pixel-ish)
-          ctx.fillStyle = '#4b2c12'; ctx.fillRect(px+TILE*0.45,py+TILE*0.6,TILE*0.1,TILE*0.4);
-          ctx.fillStyle = '#0d5b2e'; ctx.beginPath();
+          ctx.fillStyle = '#4b2c12';
+          ctx.fillRect(px+TILE*0.45,py+TILE*0.6,TILE*0.1,TILE*0.4);
+          ctx.fillStyle = '#0d5b2e';
+          ctx.beginPath();
           ctx.moveTo(px+TILE*0.5, py+4);
           ctx.lineTo(px+4, py+TILE*0.65);
           ctx.lineTo(px+TILE-4, py+TILE*0.65);
-          ctx.closePath(); ctx.fill();
-          // snow on tree
-          ctx.fillStyle = '#ecf7ff'; ctx.fillRect(px+6,py+6,6,2);
+          ctx.closePath();
+          ctx.fill();
+          ctx.fillStyle = '#ecf7ff';
+          ctx.fillRect(px+6,py+6,6,2);
           break;
         case 2:
-          ctx.fillStyle = '#6f6f6f'; ctx.fillRect(px+6,py+10,TILE-12,TILE-8);
+          ctx.fillStyle = '#6f6f6f';
+          ctx.fillRect(px+6,py+10,TILE-12,TILE-8);
           break;
         case 3:
-          ctx.fillStyle = '#0f5e2a'; ctx.fillRect(px+4,py+8,TILE-8,TILE-6);
-          // maybe some berries
-          ctx.fillStyle = '#ff293b'; ctx.fillRect(px+8,py+12,2,2);
+          ctx.fillStyle = '#0f5e2a';
+          ctx.fillRect(px+4,py+8,TILE-8,TILE-6);
+          ctx.fillStyle = '#ff293b';
+          ctx.fillRect(px+8,py+12,2,2);
           break;
         case 4:
-          ctx.fillStyle = '#dfefff'; ctx.fillRect(px,py,TILE,TILE);
+          ctx.fillStyle = '#dfefff';
+          ctx.fillRect(px,py,TILE,TILE);
           break;
         case 5:
-          ctx.fillStyle = '#073a6b'; ctx.fillRect(px,py,TILE,TILE);
+          ctx.fillStyle = '#073a6b';
+          ctx.fillRect(px,py,TILE,TILE);
           break;
       }
     }
   }
 
-  // draw items hidden as faint markers (for debug you can show them; normally hidden)
   items.forEach(it=>{
     const px = it.xTile*TILE + TILE/2;
     const py = it.yTile*TILE + TILE/2;
     if(it.found){
-      // drawn as collected sparkle
       ctx.fillStyle = '#ffd86b';
       ctx.fillRect(px-4,py-4,8,8);
-    } else {
-      // don't show (comment out if you want debug)
-      // ctx.fillStyle = 'rgba(255,255,255,0.06)';
-      // ctx.fillRect(px-2,py-2,4,4);
     }
   });
 
-  // draw player
   drawPlayer(ctx, player.x, player.y);
 }
 
-// inventory UI
 function addInventoryItem(type){
   const inv = document.getElementById('inventory');
   const div = document.createElement('div');
@@ -419,36 +576,22 @@ function addInventoryItem(type){
   div.textContent = type;
   inv.appendChild(div);
 
-  // animate HUD briefly
   setTimeout(()=>div.style.transform='scale(1.05)',50);
   setTimeout(()=>div.style.transform='',380);
 }
 
-// game loop with RAF
 function loop(){
   update();
   draw();
   requestAnimationFrame(loop);
 }
 
-// start
+// Initialize game
+startGameTimer();
 loop();
 
-/* ---------- Sounds: placeholders ----------
-You can add sounds by loading audio files and using:
-const collectAudio = new Audio('/assets/sounds/collect.mp3');
-function playSound(name){ if(name==='collect') collectAudio.play(); }
-Add preload logic and mute/unmute controls in UI.
---------------------------------------------*/
-
-/* ---------- Notes to replace sprite drawing ----------
-- Right now player and tiles are drawn procedurally for demo.
-- To use sprite sheets:
-  1) load Image() objects and draw via drawImage(sprite, sx, sy, sw, sh, dx, dy, dw, dh)
-  2) set ctx.imageSmoothingEnabled = false for crisp pixels
-  3) store frames and change sx based on player.animFrame & direction
---------------------------------------------*/
-
+// Load initial leaderboard
+loadLeaderboard();
 </script>
 </body>
 </html>
