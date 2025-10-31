@@ -5,43 +5,289 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0"/>
 <title>La Búsqueda Navideña — Pixel Adventure</title>
 <style>
-  :root{
-    --bg:#0b1a1a;
-    --panel:#071014;
-    --accent:#ffd86b;
-    --text:#f6f7f9;
+:root{
+  --bg: #0a1e23;
+  --panel: #0f2b35;
+  --accent: #ffb347;
+  --text: #f0f8ff;
+  --success: #4CAF50;
+  --warning: #FF9800;
+  --error: #f44336;
+}
+
+html,body { 
+  height:100%; 
+  margin:0; 
+  background: linear-gradient(180deg, #0a2b3a, #051a25); 
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+  -webkit-font-smoothing:antialiased; 
+  -moz-osx-font-smoothing:grayscale; 
+  touch-action: none; 
+  color: var(--text);
+}
+
+#gameWrap { 
+  width:100%; 
+  height:100vh; 
+  display:flex; 
+  flex-direction:column; 
+  align-items:center; 
+  justify-content:center; 
+  gap:12px; 
+  box-sizing:border-box; 
+  padding:16px; 
+}
+
+canvas { 
+  image-rendering: pixelated; 
+  background: linear-gradient(180deg, #0a3a4a, #063240); 
+  border-radius:12px; 
+  box-shadow: 0 12px 40px rgba(0,0,0,0.7); 
+  border: 2px solid rgba(255, 179, 71, 0.3);
+}
+
+.hud { 
+  width:100%; 
+  max-width:900px; 
+  display:flex; 
+  justify-content:space-between; 
+  align-items:center; 
+  color:var(--text); 
+  gap:12px; 
+}
+
+.panel { 
+  background: rgba(15, 43, 53, 0.9); 
+  padding:12px 16px; 
+  border-radius:12px; 
+  display:flex; 
+  gap:12px; 
+  align-items:center; 
+  border: 1px solid rgba(255, 179, 71, 0.2);
+  backdrop-filter: blur(10px);
+}
+
+.button { 
+  background: var(--accent); 
+  color:#1a1a1a; 
+  padding:8px 16px; 
+  border-radius:8px; 
+  cursor:pointer; 
+  font-weight:700; 
+  border:none; 
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(255, 179, 71, 0.3);
+}
+
+.button:hover {
+  background: #ffa53d;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(255, 179, 71, 0.4);
+}
+
+#inventory { 
+  display:flex; 
+  gap:10px; 
+  align-items:center; 
+}
+
+.item { 
+  display:flex; 
+  gap:8px; 
+  align-items:center; 
+  padding:8px 12px; 
+  background: rgba(255, 255, 255, 0.1); 
+  border-radius:8px; 
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  font-weight: 600;
+}
+
+#mobileControls { 
+  position: absolute; 
+  bottom:24px; 
+  left:24px; 
+  display:none; 
+  gap:10px; 
+}
+
+.dpad { 
+  width:150px; 
+  height:150px; 
+  background: rgba(15, 43, 53, 0.9); 
+  border-radius:16px; 
+  display:grid; 
+  grid-template-columns:repeat(3,1fr); 
+  grid-template-rows:repeat(3,1fr); 
+  border: 2px solid rgba(255, 179, 71, 0.3);
+  backdrop-filter: blur(10px);
+}
+
+.dpad button { 
+  background:transparent; 
+  border:0; 
+  color:transparent; 
+  transition: background 0.2s ease;
+}
+
+.dpad button:active {
+  background: rgba(255, 179, 71, 0.3);
+}
+
+/* Modal styles */
+.modal { 
+  display: none; 
+  position: fixed; 
+  top: 0; 
+  left: 0; 
+  width: 100%; 
+  height: 100%; 
+  background: rgba(0,0,0,0.85); 
+  z-index: 1000; 
+  justify-content: center; 
+  align-items: center; 
+}
+
+.modal-content { 
+  background: var(--panel); 
+  padding: 24px; 
+  border-radius: 16px; 
+  max-width: 420px; 
+  width: 90%; 
+  text-align: center; 
+  border: 2px solid var(--accent);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+}
+
+.modal input { 
+  width: 85%; 
+  padding: 12px; 
+  margin: 12px 0; 
+  border: none; 
+  border-radius: 8px; 
+  background: rgba(255,255,255,0.15); 
+  color: var(--text); 
+  font-size: 16px;
+  border: 1px solid rgba(255, 179, 71, 0.3);
+}
+
+.modal input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.modal-buttons { 
+  display: flex; 
+  gap: 12px; 
+  justify-content: center; 
+  margin-top: 20px; 
+}
+
+/* Leaderboard styles */
+#leaderboard { 
+  margin-top: 20px; 
+  max-height: 250px; 
+  overflow-y: auto; 
+}
+
+.leaderboard-item { 
+  display: flex; 
+  justify-content: space-between; 
+  padding: 8px 0; 
+  border-bottom: 1px solid rgba(255,255,255,0.15); 
+  font-weight: 500;
+}
+
+.leaderboard-item:nth-child(1) { color: gold; font-weight: bold; }
+.leaderboard-item:nth-child(2) { color: silver; font-weight: bold; }
+.leaderboard-item:nth-child(3) { color: #cd7f32; font-weight: bold; }
+
+/* Collect button for mobile */
+#collectBtn { 
+  position: absolute; 
+  bottom: 24px; 
+  right: 24px; 
+  display: none; 
+  width: 70px; 
+  height: 70px; 
+  border-radius: 50%; 
+  background: var(--accent); 
+  color: #1a1a1a; 
+  border: none; 
+  font-weight: bold; 
+  font-size: 14px; 
+  box-shadow: 0 6px 20px rgba(255, 179, 71, 0.4);
+  transition: all 0.2s ease;
+}
+
+#collectBtn:active {
+  transform: scale(0.95);
+  background: #ffa53d;
+}
+
+/* Status message improvements */
+#message {
+  font-weight: 700;
+  font-size: 14px;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
+/* Timer styling */
+#timer {
+  font-weight: 800;
+  color: var(--accent);
+  font-size: 18px;
+}
+
+/* Inventory item improvements */
+#found, #total {
+  font-weight: 800;
+  color: var(--accent);
+  font-size: 18px;
+}
+
+@media (max-width:800px){
+  #mobileControls { display: block; }
+  #collectBtn { display: block; }
+  canvas { 
+    width:95vw !important; 
+    height: calc(95vw * (9/16)) !important; 
   }
-  html,body { height:100%; margin:0; background: linear-gradient(180deg,#08202a,#03111b); font-family: Inter, system-ui, sans-serif; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; touch-action: none; }
-  #gameWrap { width:100%; height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; box-sizing:border-box; padding:12px; }
-  canvas { image-rendering: pixelated; background: linear-gradient(180deg,#072033,#022026); border-radius:8px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); }
-  .hud { width:100%; max-width:900px; display:flex; justify-content:space-between; align-items:center; color:var(--text); gap:10px; }
-  .panel { background:rgba(0,0,0,0.2); padding:8px 12px; border-radius:8px; display:flex; gap:12px; align-items:center; }
-  .button { background:var(--accent); color:#000; padding:6px 10px; border-radius:6px; cursor:pointer; font-weight:700; border:none; }
-  #inventory { display:flex; gap:8px; align-items:center; }
-  .item { display:flex; gap:6px; align-items:center; padding:6px 8px; background:rgba(255,255,255,0.04); border-radius:6px; }
-  #mobileControls { position: absolute; bottom:18px; left:18px; display:none; gap:8px; }
-  .dpad { width:140px; height:140px; background: rgba(0,0,0,0.25); border-radius:12px; display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,1fr); }
-  .dpad button { background:transparent; border:0; color:transparent; }
-  
-  /* Modal styles */
-  .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; }
-  .modal-content { background: var(--panel); padding: 20px; border-radius: 12px; max-width: 400px; width: 90%; text-align: center; }
-  .modal input { width: 80%; padding: 10px; margin: 10px 0; border: none; border-radius: 6px; background: rgba(255,255,255,0.1); color: var(--text); }
-  .modal-buttons { display: flex; gap: 10px; justify-content: center; margin-top: 15px; }
-  
-  /* Leaderboard styles */
-  #leaderboard { margin-top: 15px; max-height: 200px; overflow-y: auto; }
-  .leaderboard-item { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
-  
-  /* Collect button for mobile */
-  #collectBtn { position: absolute; bottom: 18px; right: 18px; display: none; width: 60px; height: 60px; border-radius: 50%; background: var(--accent); color: #000; border: none; font-weight: bold; font-size: 12px; }
-  
-  @media (max-width:800px){
-    #mobileControls { display: block; }
-    #collectBtn { display: block; }
-    canvas { width:92vw !important; height: calc(92vw * (9/16)) !important; }
+  .hud {
+    flex-direction: column;
+    gap: 8px;
   }
-  html, body, canvas { -webkit-touch-callout: none; -webkit-user-select:none; -ms-user-select:none; user-select:none; }
+  .panel {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+html, body, canvas { 
+  -webkit-touch-callout: none; 
+  -webkit-user-select:none; 
+  -ms-user-select:none; 
+  user-select:none; 
+}
+
+/* Scrollbar styling */
+#leaderboard::-webkit-scrollbar {
+  width: 8px;
+}
+
+#leaderboard::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+#leaderboard::-webkit-scrollbar-thumb {
+  background: var(--accent);
+  border-radius: 4px;
+}
+
+#leaderboard::-webkit-scrollbar-thumb:hover {
+  background: #ffa53d;
+}
 </style>
 </head>
 <body>
@@ -205,9 +451,11 @@ function stopGameTimer() {
 }
 
 // API Communication functions - CORREGIDO
+// En tu HTML, actualiza las funciones de API:
+
 async function submitScore(discordId, score) {
   try {
-    const response = await fetch(SCORE_ENDPOINT, {
+    const response = await fetch('/score', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -217,6 +465,10 @@ async function submitScore(discordId, score) {
         score: score
       })
     });
+
+    if (!response.ok) {
+      throw new Error(`Error ${response.status}: ${response.statusText}`);
+    }
 
     const result = await response.json();
     
@@ -229,14 +481,15 @@ async function submitScore(discordId, score) {
     }
   } catch (error) {
     console.error('Error submitting score:', error);
-    showMessage('Error de conexión al servidor', 'error');
+    showMessage(`Error de conexión: ${error.message}`, 'error');
     return false;
   }
 }
 
 async function loadLeaderboard() {
   try {
-    const response = await fetch(SCORES_ENDPOINT);
+    const response = await fetch('/scores');
+    
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -244,10 +497,9 @@ async function loadLeaderboard() {
     const scores = await response.json();
     const leaderboardElement = document.getElementById('leaderboard');
     
-    // Verificar si scores es un array
+    // Verificar si es un array
     if (!Array.isArray(scores)) {
-      console.error('La respuesta no es un array:', scores);
-      leaderboardElement.innerHTML = '<div style="text-align:center; padding:20px; color:#ff6b6b;">Error en el formato de datos</div>';
+      leaderboardElement.innerHTML = '<div style="text-align:center; padding:20px;">Formato de datos inválido</div>';
       return;
     }
     
@@ -258,32 +510,25 @@ async function loadLeaderboard() {
     
     let leaderboardHTML = '';
     scores.forEach((score, index) => {
-      // Verificar que score tenga las propiedades esperadas
-      if (!score || typeof score !== 'object') {
-        return; // Saltar elementos inválidos
-      }
-      
       const date = score.date ? new Date(score.date).toLocaleDateString() : 'Fecha desconocida';
-      const discordId = score.discord_id || 'Usuario desconocido';
-      const scoreValue = score.score !== undefined ? score.score : 'N/A';
-      
       leaderboardHTML += `
         <div class="leaderboard-item">
-          <span>${index + 1}. ${discordId}</span>
-          <span>${scoreValue} seg</span>
+          <span>${index + 1}. ${score.discord_id || 'Anónimo'}</span>
+          <span>${score.score} seg</span>
           <small>${date}</small>
         </div>
       `;
     });
     
-    leaderboardElement.innerHTML = leaderboardHTML || '<div style="text-align:center; padding:20px;">No hay puntuaciones válidas</div>';
+    leaderboardElement.innerHTML = leaderboardHTML;
   } catch (error) {
     console.error('Error loading leaderboard:', error);
     document.getElementById('leaderboard').innerHTML = 
-      '<div style="text-align:center; padding:20px; color:#ff6b6b;">Error cargando el ranking: ' + error.message + '</div>';
+      `<div style="text-align:center; padding:20px; color:#ff6b66;">
+        Error cargando ranking: ${error.message}
+       </div>`;
   }
 }
-
 // UI Helper functions
 function showMessage(text, type = 'info') {
   const messageElement = document.getElementById('message');
