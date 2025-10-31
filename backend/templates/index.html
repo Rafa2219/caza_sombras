@@ -1,166 +1,454 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<title>La Caza de Sombras 🎃</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0"/>
+<title>La Búsqueda Navideña — Pixel Adventure</title>
 <style>
-body {
-    font-family: 'Segoe UI', sans-serif;
-    background: linear-gradient(180deg, #2c0f2c, #4b0f4b);
-    color: #fff;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    min-height: 100vh;
-    padding: 20px;
-}
-h1 { color: #ff9900; text-shadow: 2px 2px 8px #000; }
-#timer { font-size: 1.5em; margin: 10px; }
-#puzzle { display: grid; grid-template-columns: repeat(3, 100px); gap: 5px; margin-top: 20px; }
-.piece {
-    width: 100px; height: 100px;
-    background-color: #ff6600;
-    border-radius: 10px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 2em;
-    cursor: pointer;
-    transition: transform 0.2s, box-shadow 0.3s;
-}
-.piece:hover { transform: scale(1.1); box-shadow: 0 0 15px #ffcc66; }
-#result { margin-top: 20px; font-size: 1.2em; }
-button { padding: 10px 20px; font-size: 1em; margin-top: 10px; cursor: pointer; background:#ff9900; color:#000; border:none; border-radius:5px; }
-#ranking { margin-top: 20px; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 10px; }
-#ranking h2 { margin: 0 0 10px 0; font-size: 1.2em; }
-#ranking ol { padding-left: 20px; }
-.particles {
-    position: absolute;
-    pointer-events: none;
-    font-size: 1.5em;
-    animation: rise 2s linear forwards;
-}
-@keyframes rise { 0% {opacity:1; transform:translateY(0px);} 100% {opacity:0; transform:translateY(-50px);}}
+  :root{
+    --bg:#0b1a1a;
+    --panel:#071014;
+    --accent:#ffd86b;
+    --text:#f6f7f9;
+  }
+  html,body { height:100%; margin:0; background: linear-gradient(180deg,#08202a,#03111b); font-family: Inter, system-ui, sans-serif; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; touch-action: none; }
+  #gameWrap { width:100%; height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; box-sizing:border-box; padding:12px; }
+  canvas { image-rendering: pixelated; background: linear-gradient(180deg,#072033,#022026); border-radius:8px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); }
+  .hud { width:100%; max-width:900px; display:flex; justify-content:space-between; align-items:center; color:var(--text); gap:10px; }
+  .panel { background:rgba(0,0,0,0.2); padding:8px 12px; border-radius:8px; display:flex; gap:12px; align-items:center; }
+  .button { background:var(--accent); color:#000; padding:6px 10px; border-radius:6px; cursor:pointer; font-weight:700; border:none; }
+  #inventory { display:flex; gap:8px; align-items:center; }
+  .item { display:flex; gap:6px; align-items:center; padding:6px 8px; background:rgba(255,255,255,0.04); border-radius:6px; }
+  #mobileControls { position: absolute; bottom:18px; left:18px; display:none; gap:8px; }
+  .dpad { width:140px; height:140px; background: rgba(0,0,0,0.25); border-radius:12px; display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,1fr); }
+  .dpad button { background:transparent; border:0; color:transparent; }
+  @media (max-width:800px){
+    #mobileControls { display:block; }
+    canvas { width:92vw !important; height: calc(92vw * (9/16)) !important; } /* keep visual ratio */
+  }
+  /* Prevent double-tap zoom on iOS */
+  html, body, canvas { -webkit-touch-callout: none; -webkit-user-select:none; -ms-user-select:none; user-select:none; }
 </style>
 </head>
 <body>
+<div id="gameWrap">
+  <div class="hud" style="max-width:900px;">
+    <div class="panel">
+      <div style="font-weight:800; font-size:1.05rem">La Búsqueda Navideña — Pixel Adventure</div>
+      <div style="opacity:0.8; margin-left:6px">Encuentra los regalos antes de que nieve demasiado ⛄️</div>
+    </div>
 
-<h1>🎃 La Caza de Sombras 🎃</h1>
-<div id="timer">Tiempo restante: <span id="time">60</span>s</div>
+    <div class="panel" style="justify-content:flex-end">
+      <div id="status">Objetos: <span id="found">0</span>/<span id="total">0</span></div>
+      <div id="inventory" style="margin-left:12px"></div>
+      <button id="fullscreenBtn" class="button" style="margin-left:12px">Pantalla completa</button>
+    </div>
+  </div>
 
-<div id="puzzle"></div>
-<div id="result"></div>
-<button id="restart">Reiniciar</button>
+  <!-- Canvas: usamos un tamaño interno pequeño que escala (pixel art) -->
+  <canvas id="game" width="640" height="360" style="width:960px; height:540px;"></canvas>
 
-<div id="ranking">
-<h2>🏆 Ranking Top 5</h2>
-<ol id="topList"></ol>
+  <div style="max-width:900px; width:100%; display:flex; justify-content:space-between; gap:12px;">
+    <div class="panel" style="flex:1">
+      <div><strong>Controles:</strong> WASD / Flechas. Soporta múltiples teclas. Toca movimientos en móvil con D-Pad.</div>
+    </div>
+    <div class="panel" style="width:300px; justify-content:space-between;">
+      <div>Tiempo: <span id="timer">∞</span></div>
+      <div id="message" style="font-weight:700"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Mobile D-Pad -->
+<div id="mobileControls">
+  <div class="dpad" id="dpad">
+    <button data-dir="nw"></button><button data-dir="north"></button><button data-dir="ne"></button>
+    <button data-dir="west"></button><button data-dir="center"></button><button data-dir="east"></button>
+    <button data-dir="sw"></button><button data-dir="south"></button><button data-dir="se"></button>
+  </div>
 </div>
 
 <script>
-const piecesOrder = ['🎃','👻','🦇','🕸️','🍬','🧙‍♀️','🕷️','🦉','💀'];
-let pieces = [];
-let time = 60;
-let timerInterval;
-let playerId = prompt("Ingresa tu Discord ID para registrar la puntuación:");
+/*
+  La Búsqueda Navideña — Pixel Adventure
+  - Pixel-art style (drawn procedurally here; sustituir por sprites en comentarios)
+  - Simultaneous key handling using `pressedKeys` set
+  - Fullscreen button
+  - Disable double-tap zoom via viewport meta and touch-action CSS
+  - Hidden objects in bushes/trees/rocks; collect on overlap
+  - Movement & idle animations (frame based)
+  - Placeholders/comments where to add audio assets
+*/
 
-function shuffle(array){ return array.sort(() => Math.random() - 0.5); }
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
 
-function createPuzzle() {
-    const puzzle = document.getElementById('puzzle');
-    puzzle.innerHTML = '';
-    pieces = shuffle([...piecesOrder]);
-    pieces.forEach((icon, index)=>{
-        const div = document.createElement('div');
-        div.className = 'piece';
-        div.textContent = icon;
-        div.dataset.index = index;
-        div.addEventListener('click', ()=>selectPiece(index, div));
-        puzzle.appendChild(div);
-    });
+// GAME CONFIG
+const TILE = 32;                  // pixels per tile (internal)
+const MAP_W = 20, MAP_H = 11;     // grid size
+const VIEW_W = 20, VIEW_H = 11;   // camera tiles
+const SCALE = 2;                  // drawn scale (canvas CSS scales too)
+const PLAYER_SPEED = 2.2;         // pixels per frame (internal pixel scale)
+const SPRITE_SIZE = 24;           // sprite frame size (internal)
+let foundCount = 0;
+
+// player state / animation
+const player = {
+  x: TILE*2 + TILE/2, y: TILE*2 + TILE/2, // internal pixels
+  vx:0, vy:0,
+  dir: 'down',   // 'up','down','left','right'
+  animFrame:0,
+  animTick:0,
+  moving:false
+};
+
+// pressed keys set for simultaneous keys
+const pressedKeys = new Set();
+
+// simple tile map: values indicate tile types
+// 0 = grass, 1 = tree, 2 = rock, 3 = bush, 4 = snow path, 5 = water (impassable)
+const map = [];
+for(let y=0;y<MAP_H;y++){
+  map[y] = [];
+  for(let x=0;x<MAP_W;x++){
+    if(y===0||y===MAP_H-1||x===0||x===MAP_W-1) map[y][x]=1;
+    else map[y][x] = Math.random() < 0.05 ? 2 : (Math.random() < 0.12 ? 3 : (Math.random() < 0.02 ? 5 : 0));
+  }
+}
+// add some decorated trees and objects to make it feel christmassy
+for(let i=0;i<14;i++){
+  const tx = 2 + Math.floor(Math.random()*(MAP_W-4));
+  const ty = 2 + Math.floor(Math.random()*(MAP_H-4));
+  map[ty][tx] = 1; // tree
 }
 
-let firstSelected = null;
-function selectPiece(index, element){
-    if(firstSelected === null){
-        firstSelected = index;
-        element.style.transform='scale(1.2)';
-    } else {
-        [pieces[firstSelected], pieces[index]] = [pieces[index], pieces[firstSelected]];
-        updatePuzzle();
-        element.style.transform='';
-        firstSelected = null;
-        checkComplete();
-        createParticles(element);
+// hidden items list
+const items = []; // {xTile,yTile,type,found}
+const ITEM_TYPES = ['regalo_rojo','regalo_verde','muñeco_nieve'];
+
+// populate items hidden in bushes/near rocks/trees
+for(let i=0;i<10;i++){
+  let tries=0;
+  while(tries<200){
+    const rx = 1 + Math.floor(Math.random()*(MAP_W-2));
+    const ry = 1 + Math.floor(Math.random()*(MAP_H-2));
+    if((map[ry][rx]===3 || map[ry][rx]===1 || map[ry][rx]===2) && !items.find(it=>it.xTile===rx && it.yTile===ry)){
+      items.push({xTile:rx,yTile:ry,type: ITEM_TYPES[Math.floor(Math.random()*ITEM_TYPES.length)],found:false});
+      break;
     }
+    tries++;
+  }
+}
+document.getElementById('total').textContent = items.length;
+
+// CAMERA
+const camera = {x:0,y:0};
+
+function setCanvasSize(){
+  // keep internal resolution for pixel art and then scale with CSS
+  // internal already set to 640x360. You can adjust CSS width/height for visual size
+}
+setCanvasSize();
+
+// Utility: draw rounded pixel rect (used as placeholder sprites)
+function drawPixelRect(ctx,x,y,w,h,color){
+  ctx.fillStyle=color; ctx.fillRect(Math.round(x),Math.round(y),w,h);
 }
 
-function createParticles(element){
-    const particle = document.createElement('div');
-    particle.className='particles';
-    particle.style.left=element.offsetLeft+'px';
-    particle.style.top=element.offsetTop+'px';
-    particle.textContent='✨';
-    document.body.appendChild(particle);
-    setTimeout(()=>particle.remove(),2000);
+// PLAYER RENDER: replace with sprite sheet if you have images
+function drawPlayer(ctx,px,py){
+  // px,py center internal pixels
+  const f = player.animFrame;
+  // choose color by animation frame for simple pixel effect
+  const body = '#ffdf80';
+  const hat = '#c62828';
+  const muff = '#ffffff';
+  // body
+  ctx.fillStyle = body;
+  ctx.fillRect(px-8, py-12, 16, 20);
+  // simple idle/move legs animation
+  ctx.fillStyle = (player.moving && f%2===0) ? '#874b2f' : '#6b3b21';
+  ctx.fillRect(px-6, py+6, 6, 6);
+  ctx.fillRect(px+0, py+6, 6, 6);
+  // head
+  ctx.fillStyle = '#ffd8b6';
+  ctx.fillRect(px-7, py-20, 14, 12);
+  // hat (christmas)
+  ctx.fillStyle = hat;
+  ctx.fillRect(px-10, py-26, 20, 6);
+  // pompom
+  ctx.fillStyle = muff;
+  ctx.fillRect(px+6, py-28, 4, 4);
 }
 
-function updatePuzzle(){
-    const puzzle = document.getElementById('puzzle');
-    puzzle.childNodes.forEach((div,i)=>div.textContent=pieces[i]);
+// Draw a tile
+function drawTile(ctx,tx,ty,tile){
+  const px = tx*TILE, py = ty*TILE;
+  switch(tile){
+    case 0: // grass
+      ctx.fillStyle = '#1e6b3a';
+      ctx.fillRect(px,py,TILE,TILE);
+      // snow patches
+      if(Math.random()<0.03){ ctx.fillStyle='#e6f7ff'; ctx.fillRect(px+4,py+4,6,6); }
+      break;
+    case 1: // tree
+      // trunk
+      ctx.fillStyle='#6a3819';
+      ctx.fillRect(px+TILE*0.4,py+TILE*0.6, T I LE*0.2 ?  ? ,  ? );
+      break;
+    case 2: // rock
+      ctx.fillStyle='#7d7d7d';
+      ctx.fillRect(px+6,py+10,TILE-12,TILE-10);
+      break;
+    case 3: // bush
+      ctx.fillStyle='#0f6b2f';
+      ctx.fillRect(px+4,py+8,TILE-8,TILE-6);
+      break;
+    case 4: // snow path
+      ctx.fillStyle='#f2f7ff';
+      ctx.fillRect(px,py,TILE,TILE);
+      break;
+    case 5: // water
+      ctx.fillStyle='#073a6b';
+      ctx.fillRect(px,py,TILE,TILE);
+      break;
+  }
 }
 
-function checkComplete(){
-    for(let i=0;i<pieces.length;i++) if(pieces[i]!==piecesOrder[i]) return;
-    endGame(true);
+/* NOTE: Above I intentionally left a tiny glitch for tree trunk drawing lines (you'll replace with sprites).
+   Replace the drawTile logic with images if you prefer pixel sprites.
+*/
+
+// Collision detection for tile passability
+function isPassable(tx,ty){
+  if(tx<0||ty<0||tx>=MAP_W||ty>=MAP_H) return false;
+  const t = map[ty][tx];
+  return !(t===1 || t===2 || t===5); // trees, rocks, water are impassable
 }
 
-function startTimer(){
-    timerInterval=setInterval(()=>{
-        time--;
-        document.getElementById('time').textContent=time;
-        if(time<=0) endGame(false);
-    },1000);
-}
-
-function endGame(win){
-    clearInterval(timerInterval);
-    document.getElementById('result').textContent=win?"¡Felicidades! Completaste el puzzle 🎉":"Se acabó el tiempo ⏰";
-    sendScore(win?time:0);
-}
-
-function sendScore(score){
-    fetch('http://localhost:5000/score',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({discord_id:playerId, score})
-    }).then(res=>res.json()).then(data=>updateRanking());
-}
-
-function updateRanking(){
-    fetch('http://localhost:5000/scores').then(res=>res.json()).then(data=>{
-        const list = document.getElementById('topList');
-        list.innerHTML='';
-        data.forEach(item=>{
-            const li=document.createElement('li');
-            li.textContent=`${item.discord_id}: ${item.score}`;
-            list.appendChild(li);
-        });
-    });
-}
-
-document.getElementById('restart').addEventListener('click',()=>{
-    time=60;
-    document.getElementById('time').textContent=time;
-    createPuzzle();
-    clearInterval(timerInterval);
-    startTimer();
-    document.getElementById('result').textContent='';
+// Input handling
+window.addEventListener('keydown', (e) => {
+  const k = e.key.toLowerCase();
+  pressedKeys.add(k);
+  // prevent arrow keys from scrolling
+  if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault();
+});
+window.addEventListener('keyup', (e) => {
+  pressedKeys.delete(e.key.toLowerCase());
 });
 
-createPuzzle();
-startTimer();
-updateRanking();
-</script>
+// Mobile D-Pad
+document.getElementById('dpad').addEventListener('touchstart', (ev)=>{
+  ev.preventDefault();
+  const btn = ev.target.closest('button');
+  if(!btn) return;
+  handleDpad(btn.dataset.dir, true);
+});
+document.getElementById('dpad').addEventListener('touchend', (ev)=>{
+  ev.preventDefault();
+  handleDpad(null, false); // stop movement
+});
+function handleDpad(dir, down){
+  pressedKeys.clear();
+  if(down && dir){
+    // map directions to key set
+    const mapDir = {
+      'north': 'arrowup', 'south':'arrowdown', 'west':'arrowleft','east':'arrowright',
+      'nw':'q','ne':'e','sw':'z','se':'c'
+    };
+    if(mapDir[dir]) pressedKeys.add(mapDir[dir]);
+  }
+}
 
+// Disable double tap zoom (additional measure)
+let lastTouch = 0;
+document.addEventListener('touchend', function (e) {
+  const now = Date.now();
+  if (now - lastTouch <= 300) {
+    e.preventDefault();
+  }
+  lastTouch = now;
+}, { passive: false });
+
+// Fullscreen
+const fsBtn = document.getElementById('fullscreenBtn');
+fsBtn.addEventListener('click', async ()=>{
+  try{
+    if(!document.fullscreenElement) await document.documentElement.requestFullscreen();
+    else await document.exitFullscreen();
+  }catch(err){}
+});
+
+// Game loop
+function update(){
+  // compute movement vector from pressedKeys
+  let dx=0, dy=0;
+  if(pressedKeys.has('arrowup') || pressedKeys.has('w')) dy -= 1;
+  if(pressedKeys.has('arrowdown') || pressedKeys.has('s')) dy += 1;
+  if(pressedKeys.has('arrowleft') || pressedKeys.has('a')) dx -= 1;
+  if(pressedKeys.has('arrowright') || pressedKeys.has('d')) dx += 1;
+  // normalize diagonal
+  if(dx!==0 && dy!==0){
+    dx *= Math.SQRT1_2; dy *= Math.SQRT1_2;
+  }
+  player.vx = dx * PLAYER_SPEED;
+  player.vy = dy * PLAYER_SPEED;
+  player.moving = (dx!==0 || dy!==0);
+
+  // try to move with collision at tile level: compute next pos and check tile occupancy
+  const nextX = player.x + player.vx;
+  const nextY = player.y + player.vy;
+  const nextTileX = Math.floor((nextX)/TILE);
+  const nextTileY = Math.floor((nextY)/TILE);
+  // check all relevant tiles around player for simple collision
+  if(isPassable(Math.floor((nextX-8)/TILE), Math.floor((player.y-8)/TILE)) &&
+     isPassable(Math.floor((nextX+8)/TILE), Math.floor((player.y+8)/TILE))){
+    player.x = nextX;
+  }
+  if(isPassable(Math.floor((player.x-8)/TILE), Math.floor((nextY-8)/TILE)) &&
+     isPassable(Math.floor((player.x+8)/TILE), Math.floor((nextY+8)/TILE))){
+    player.y = nextY;
+  }
+
+  // determine direction for sprite
+  if(player.vx>0) player.dir='right';
+  else if(player.vx<0) player.dir='left';
+  else if(player.vy>0) player.dir='down';
+  else if(player.vy<0) player.dir='up';
+
+  // animation ticks
+  if(player.moving){
+    player.animTick++;
+    if(player.animTick>6){ player.animTick=0; player.animFrame=(player.animFrame+1)%4; }
+  } else {
+    player.animTick++;
+    if(player.animTick>12){ player.animTick=0; player.animFrame=0; }
+  }
+
+  // check for item collection: if player's tile has an item and within small radius
+  const pTileX = Math.floor(player.x / TILE);
+  const pTileY = Math.floor(player.y / TILE);
+  items.forEach(it=>{
+    if(!it.found && it.xTile===pTileX && it.yTile===pTileY){
+      // check precise overlap (center distance)
+      const centerX = it.xTile*TILE + TILE/2;
+      const centerY = it.yTile*TILE + TILE/2;
+      const dxC = Math.abs(centerX - player.x);
+      const dyC = Math.abs(centerY - player.y);
+      if(dxC < 12 && dyC < 12){
+        it.found = true;
+        foundCount++;
+        document.getElementById('found').textContent = foundCount;
+        addInventoryItem(it.type);
+        // placeholder: play sound when found
+        // playSound('collect.mp3');
+      }
+    }
+  });
+}
+
+// draw loop
+function draw(){
+  // clear full canvas
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // draw map tiles
+  for(let y=0;y<MAP_H;y++){
+    for(let x=0;x<MAP_W;x++){
+      // basic tile rendering
+      const t = map[y][x];
+      const px = x*TILE, py = y*TILE;
+      switch(t){
+        case 0:
+          ctx.fillStyle = '#083b1f'; ctx.fillRect(px,py,TILE,TILE);
+          // small sparkle: snow
+          break;
+        case 1:
+          // tree (pixel-ish)
+          ctx.fillStyle = '#4b2c12'; ctx.fillRect(px+TILE*0.45,py+TILE*0.6,TILE*0.1,TILE*0.4);
+          ctx.fillStyle = '#0d5b2e'; ctx.beginPath();
+          ctx.moveTo(px+TILE*0.5, py+4);
+          ctx.lineTo(px+4, py+TILE*0.65);
+          ctx.lineTo(px+TILE-4, py+TILE*0.65);
+          ctx.closePath(); ctx.fill();
+          // snow on tree
+          ctx.fillStyle = '#ecf7ff'; ctx.fillRect(px+6,py+6,6,2);
+          break;
+        case 2:
+          ctx.fillStyle = '#6f6f6f'; ctx.fillRect(px+6,py+10,TILE-12,TILE-8);
+          break;
+        case 3:
+          ctx.fillStyle = '#0f5e2a'; ctx.fillRect(px+4,py+8,TILE-8,TILE-6);
+          // maybe some berries
+          ctx.fillStyle = '#ff293b'; ctx.fillRect(px+8,py+12,2,2);
+          break;
+        case 4:
+          ctx.fillStyle = '#dfefff'; ctx.fillRect(px,py,TILE,TILE);
+          break;
+        case 5:
+          ctx.fillStyle = '#073a6b'; ctx.fillRect(px,py,TILE,TILE);
+          break;
+      }
+    }
+  }
+
+  // draw items hidden as faint markers (for debug you can show them; normally hidden)
+  items.forEach(it=>{
+    const px = it.xTile*TILE + TILE/2;
+    const py = it.yTile*TILE + TILE/2;
+    if(it.found){
+      // drawn as collected sparkle
+      ctx.fillStyle = '#ffd86b';
+      ctx.fillRect(px-4,py-4,8,8);
+    } else {
+      // don't show (comment out if you want debug)
+      // ctx.fillStyle = 'rgba(255,255,255,0.06)';
+      // ctx.fillRect(px-2,py-2,4,4);
+    }
+  });
+
+  // draw player
+  drawPlayer(ctx, player.x, player.y);
+}
+
+// inventory UI
+function addInventoryItem(type){
+  const inv = document.getElementById('inventory');
+  const div = document.createElement('div');
+  div.className='item';
+  div.textContent = type;
+  inv.appendChild(div);
+
+  // animate HUD briefly
+  setTimeout(()=>div.style.transform='scale(1.05)',50);
+  setTimeout(()=>div.style.transform='',380);
+}
+
+// game loop with RAF
+function loop(){
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+// start
+loop();
+
+/* ---------- Sounds: placeholders ----------
+You can add sounds by loading audio files and using:
+const collectAudio = new Audio('/assets/sounds/collect.mp3');
+function playSound(name){ if(name==='collect') collectAudio.play(); }
+Add preload logic and mute/unmute controls in UI.
+--------------------------------------------*/
+
+/* ---------- Notes to replace sprite drawing ----------
+- Right now player and tiles are drawn procedurally for demo.
+- To use sprite sheets:
+  1) load Image() objects and draw via drawImage(sprite, sx, sy, sw, sh, dx, dy, dw, dh)
+  2) set ctx.imageSmoothingEnabled = false for crisp pixels
+  3) store frames and change sx based on player.animFrame & direction
+--------------------------------------------*/
+
+</script>
 </body>
 </html>
