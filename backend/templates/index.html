@@ -459,7 +459,6 @@ for(let i=0;i<10;i++){
   }
 }
 document.getElementById('total').textContent = items.length;
-
 // ========== FUNCIONES DE API MEJORADAS ==========
 async function submitScore(discordId, score) {
   try {
@@ -475,6 +474,12 @@ async function submitScore(discordId, score) {
         score: score
       })
     });
+
+    // Verificar si la respuesta es JSON
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      throw new Error(`Respuesta no JSON: ${response.status} ${response.statusText}`);
+    }
 
     const data = await response.json();
     
@@ -503,6 +508,12 @@ async function loadLeaderboard() {
     
     if (!response.ok) {
       throw new Error(`Error HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    // Verificar si la respuesta es JSON
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      throw new Error(`Respuesta no JSON: ${response.status} ${response.statusText}`);
     }
     
     const scores = await response.json();
@@ -543,9 +554,29 @@ async function loadLeaderboard() {
     document.getElementById('leaderboard').innerHTML = 
       `<div style="text-align:center; padding:20px; color:#ff6b6b;">
         Error cargando ranking: ${error.message}
+        <br><small>Intenta recargar la página</small>
        </div>`;
   }
 }
+
+// Función para probar la conexión
+async function testConnection() {
+  try {
+    console.log('🔍 Probando conexión con el servidor...');
+    const response = await fetch('/health');
+    const data = await response.json();
+    console.log('✅ Conexión exitosa:', data);
+    return true;
+  } catch (error) {
+    console.error('❌ Error de conexión:', error);
+    return false;
+  }
+}
+
+// Llamar a testConnection al cargar la página
+window.addEventListener('load', () => {
+  testConnection();
+});
 
 // ========== FUNCIONES DEL JUEGO (mantener tu código existente) ==========
 function startGameTimer() {
