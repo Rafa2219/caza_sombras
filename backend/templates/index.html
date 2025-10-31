@@ -247,6 +247,52 @@ canvas {
   font-size: 18px;
 }
 
+/* Start screen styles */
+#startScreen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  text-align: center;
+  max-width: 600px;
+  padding: 40px;
+}
+
+#startScreen h1 {
+  font-size: 2.5rem;
+  margin: 0;
+  color: var(--accent);
+  text-shadow: 0 0 10px rgba(255, 179, 71, 0.5);
+}
+
+#startScreen p {
+  font-size: 1.2rem;
+  line-height: 1.6;
+  opacity: 0.9;
+}
+
+#startScreen .instructions {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 20px;
+  border-radius: 12px;
+  margin: 20px 0;
+  text-align: left;
+}
+
+#startScreen .instructions h3 {
+  margin-top: 0;
+  color: var(--accent);
+}
+
+#startScreen .instructions ul {
+  padding-left: 20px;
+}
+
+#startScreen .instructions li {
+  margin-bottom: 8px;
+}
+
 @media (max-width:800px){
   #mobileControls { display: block; }
   #collectBtn { display: block; }
@@ -301,7 +347,29 @@ html, body, canvas {
 </style>
 </head>
 <body>
-<div id="gameWrap">
+<!-- Start Screen -->
+<div id="startScreen" class="modal" style="display: flex;">
+  <div class="modal-content">
+    <h1>🎄 La Búsqueda Navideña 🎄</h1>
+    <p>¡Encuentra todos los regalos navideños antes de que nieve demasiado!</p>
+    
+    <div class="instructions">
+      <h3>Instrucciones:</h3>
+      <ul>
+        <li>Usa las teclas WASD o flechas para moverte</li>
+        <li>Presiona E para recoger regalos cuando estés cerca</li>
+        <li>En móvil, usa los controles táctiles y el botón RECOGER</li>
+        <li>Encuentra todos los regalos lo más rápido posible</li>
+      </ul>
+    </div>
+    
+    <div class="modal-buttons">
+      <button id="startGameBtn" class="button">Comenzar Juego</button>
+    </div>
+  </div>
+</div>
+
+<div id="gameWrap" style="display: none;">
   <div class="hud" style="max-width:900px;">
     <div class="panel">
       <div style="font-weight:800; font-size:1.05rem">La Búsqueda Navideña — Pixel Adventure</div>
@@ -349,13 +417,15 @@ html, body, canvas {
   <div class="modal-content">
     <h3>¡Felicidades! 🎉</h3>
     <p>Has encontrado todos los regalos en <span id="finalTime">0.00</span> segundos</p>
-    <input type="text" id="discordId" placeholder="Tu ID de Discord" maxlength="50">
+    <div id="userIdSection">
+      <input type="text" id="discordId" placeholder="Tu ID de Discord" maxlength="50">
+    </div>
     <div id="userBest" style="margin: 10px 0; padding: 8px; background: rgba(255,255,255,0.1); border-radius: 6px; display: none;">
       Tu mejor tiempo: <span id="bestTime">0.00</span>s
     </div>
     <div class="modal-buttons">
       <button class="button" id="submitScore">Guardar Puntaje</button>
-      <button class="button" style="background:#666" id="cancelScore">Cancelar</button>
+      <button class="button" id="playAgainBtn">Jugar de Nuevo</button>
     </div>
   </div>
 </div>
@@ -369,14 +439,15 @@ html, body, canvas {
     </div>
     <div class="modal-buttons">
       <button class="button" id="closeLeaderboard">Cerrar</button>
+      <button class="button" id="playAgainFromLeaderboard">Jugar de Nuevo</button>
     </div>
   </div>
 </div>
-
 <script>
 // ========== CONFIGURACIÓN ==========
 let currentDiscordId = '';
 let userBestScore = null;
+let gameStarted = false;
 
 // ========== FUNCIONES DE URL ==========
 function getUrlParameter(name) {
@@ -420,7 +491,7 @@ async function submitScore(discordId, score) {
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
                 discord_id: discordId,
-                score: parseFloat(score)  // Asegurar que es float
+                score: parseFloat(score)
             })
         });
 
@@ -493,7 +564,7 @@ function startGameTimer() {
 
 function updateTimer() {
     const currentTime = performance.now();
-    gameTime = (currentTime - startTime) / 1000; // Tiempo en segundos con decimales
+    gameTime = (currentTime - startTime) / 1000;
     document.getElementById('timer').textContent = gameTime.toFixed(2);
 }
 
@@ -515,12 +586,16 @@ let gameCompleted = false;
 let nearItem = null;
 
 const player = {
-  x: TILE*2 + TILE/2, y: TILE*2 + TILE/2,
-  vx:0, vy:0,
+  x: TILE*2 + TILE/2, 
+  y: TILE*2 + TILE/2,
+  vx: 0, 
+  vy: 0,
   dir: 'down',
-  animFrame:0,
-  animTick:0,
-  moving:false
+  animFrame: 0,
+  animTick: 0,
+  moving: false,
+  width: 16,
+  height: 20
 };
 
 const pressedKeys = new Set();
@@ -535,13 +610,20 @@ function showMessage(text, type = 'info') {
 
 function showScoreModal() {
     document.getElementById('finalTime').textContent = gameTime.toFixed(2);
-    document.getElementById('scoreModal').style.display = 'flex';
     
-    // Si ya tenemos un ID de Discord, pre-llenar y enfocar el botón de enviar
+    // Si ya hay un ID en la URL, ocultar el campo de entrada
     if (currentDiscordId) {
-        document.getElementById('discordId').value = currentDiscordId;
-        document.getElementById('submitScore').focus();
+        document.getElementById('userIdSection').style.display = 'none';
+        // Guardar automáticamente y mostrar ranking
+        submitScore(currentDiscordId, gameTime).then(success => {
+            if (success) {
+                document.getElementById('scoreModal').style.display = 'none';
+                showLeaderboard();
+            }
+        });
     } else {
+        document.getElementById('userIdSection').style.display = 'block';
+        document.getElementById('scoreModal').style.display = 'flex';
         document.getElementById('discordId').focus();
     }
 }
@@ -549,6 +631,135 @@ function showScoreModal() {
 function showLeaderboard() {
     loadLeaderboard();
     document.getElementById('leaderboardModal').style.display = 'flex';
+}
+
+// ========== SISTEMA DE RECOLECCIÓN CORREGIDO ==========
+function checkNearbyItems() {
+    const playerCenterX = player.x;
+    const playerCenterY = player.y;
+    nearItem = null;
+    
+    items.forEach(it => {
+        if (!it.found) {
+            // Calcular la posición central del item
+            const itemCenterX = it.xTile * TILE + TILE/2;
+            const itemCenterY = it.yTile * TILE + TILE/2;
+            
+            // Calcular distancia entre jugador e item
+            const distance = Math.sqrt(
+                Math.pow(playerCenterX - itemCenterX, 2) + 
+                Math.pow(playerCenterY - itemCenterY, 2)
+            );
+            
+            // Si la distancia es menor a 20 píxeles, está cerca
+            if (distance < 20) {
+                nearItem = it;
+            }
+        }
+    });
+    
+    // Actualizar UI
+    if (nearItem) {
+        document.getElementById('message').textContent = 'Presiona E para recoger';
+        document.getElementById('message').style.color = '#ffd86b';
+    } else {
+        document.getElementById('message').textContent = '';
+    }
+}
+
+function collectItem() {
+    if (nearItem && !nearItem.found) {
+        nearItem.found = true;
+        foundCount++;
+        document.getElementById('found').textContent = foundCount;
+        addInventoryItem(nearItem.type);
+        
+        // Mostrar efecto visual
+        showCollectEffect(nearItem.xTile * TILE + TILE/2, nearItem.yTile * TILE + TILE/2);
+        
+        nearItem = null;
+        document.getElementById('message').textContent = '';
+        
+        // Verificar si se completó el juego
+        if (foundCount === items.length && !gameCompleted) {
+            gameCompleted = true;
+            stopGameTimer();
+            setTimeout(showScoreModal, 1000);
+        }
+    }
+}
+
+function showCollectEffect(x, y) {
+    // Efecto visual simple al recoger
+    ctx.fillStyle = '#ffff00';
+    ctx.globalAlpha = 0.7;
+    ctx.beginPath();
+    ctx.arc(x, y, 15, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1.0;
+    
+    // Restaurar después de un frame
+    setTimeout(() => {
+        draw();
+    }, 100);
+}
+
+function addInventoryItem(type) {
+    const inv = document.getElementById('inventory');
+    const div = document.createElement('div');
+    div.className = 'item';
+    div.textContent = type;
+    inv.appendChild(div);
+    
+    // Animación
+    div.style.transform = 'scale(0)';
+    setTimeout(() => {
+        div.style.transition = 'transform 0.3s ease';
+        div.style.transform = 'scale(1)';
+    }, 10);
+    
+    showMessage(`¡${type} encontrado!`, 'success');
+}
+
+// ========== FUNCIÓN PARA REINICIAR EL JUEGO ==========
+function resetGame() {
+    // Reiniciar variables del juego
+    foundCount = 0;
+    gameCompleted = false;
+    nearItem = null;
+    
+    // Reiniciar jugador
+    player.x = TILE*2 + TILE/2;
+    player.y = TILE*2 + TILE/2;
+    player.vx = 0;
+    player.vy = 0;
+    player.dir = 'down';
+    player.animFrame = 0;
+    player.animTick = 0;
+    player.moving = false;
+    
+    // Reiniciar items
+    items.forEach(item => {
+        item.found = false;
+    });
+    
+    // Reiniciar inventario
+    document.getElementById('inventory').innerHTML = '';
+    document.getElementById('found').textContent = '0';
+    
+    // Reiniciar temporizador
+    stopGameTimer();
+    startGameTimer();
+    
+    // Ocultar modales
+    document.getElementById('scoreModal').style.display = 'none';
+    document.getElementById('leaderboardModal').style.display = 'none';
+    
+    // Limpiar mensajes
+    document.getElementById('message').textContent = '';
+    
+    // Reiniciar controles
+    pressedKeys.clear();
 }
 
 // ========== EVENT LISTENERS ==========
@@ -562,329 +773,381 @@ document.getElementById('submitScore').addEventListener('click', async () => {
     const success = await submitScore(discordId, gameTime);
     if (success) {
         document.getElementById('scoreModal').style.display = 'none';
-        // Actualizar el ID actual si es nuevo
         if (!currentDiscordId) {
             currentDiscordId = discordId;
             document.getElementById('userInfo').style.display = 'flex';
             document.getElementById('currentUser').textContent = currentDiscordId;
         }
+        showLeaderboard();
     }
 });
 
-document.getElementById('cancelScore').addEventListener('click', () => {
-    document.getElementById('scoreModal').style.display = 'none';
-});
+document.getElementById('playAgainBtn').addEventListener('click', resetGame);
+document.getElementById('playAgainFromLeaderboard').addEventListener('click', resetGame);
 
 document.getElementById('leaderboardBtn').addEventListener('click', showLeaderboard);
 document.getElementById('closeLeaderboard').addEventListener('click', () => {
     document.getElementById('leaderboardModal').style.display = 'none';
 });
 
-// [EL RESTO DE TU CÓDIGO DEL JUEGO PERMANECE IGUAL...]
-// drawPlayer, drawTile, isPassable, input handling, game loop, etc.
+document.getElementById('collectBtn').addEventListener('click', collectItem);
 
-// Player drawing function
-function drawPlayer(ctx,px,py){
-  const f = player.animFrame;
-  const body = '#ffdf80';
-  const hat = '#c62828';
-  const muff = '#ffffff';
-  
-  ctx.fillStyle = body;
-  ctx.fillRect(px-8, py-12, 16, 20);
-  
-  ctx.fillStyle = (player.moving && f%2===0) ? '#874b2f' : '#6b3b21';
-  ctx.fillRect(px-6, py+6, 6, 6);
-  ctx.fillRect(px+0, py+6, 6, 6);
-  
-  ctx.fillStyle = '#ffd8b6';
-  ctx.fillRect(px-7, py-20, 14, 12);
-  
-  ctx.fillStyle = hat;
-  ctx.fillRect(px-10, py-26, 20, 6);
-  
-  ctx.fillStyle = muff;
-  ctx.fillRect(px+6, py-28, 4, 4);
+// Prevenir que los modales se cierren al hacer clic fuera
+document.querySelectorAll('.modal-content').forEach(content => {
+    content.addEventListener('click', (e) => {
+        e.stopPropagation();
+    });
+});
+
+// Permitir cerrar solo los modales específicos con clic fuera
+document.getElementById('leaderboardModal').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('leaderboardModal')) {
+        document.getElementById('leaderboardModal').style.display = 'none';
+    }
+});
+
+// No permitir cerrar el modal de puntuación con clic fuera
+document.getElementById('scoreModal').addEventListener('click', (e) => {
+    // No hacer nada al hacer clic fuera
+});
+
+// Iniciar juego desde pantalla de inicio
+document.getElementById('startGameBtn').addEventListener('click', () => {
+    document.getElementById('startScreen').style.display = 'none';
+    document.getElementById('gameWrap').style.display = 'flex';
+    gameStarted = true;
+    startGameTimer();
+});
+
+// ========== DIBUJO Y LÓGICA DEL JUEGO ==========
+function drawPlayer(ctx, px, py) {
+    const f = player.animFrame;
+    const body = '#ffdf80';
+    const hat = '#c62828';
+    const muff = '#ffffff';
+    
+    // Cuerpo
+    ctx.fillStyle = body;
+    ctx.fillRect(px - 8, py - 12, 16, 20);
+    
+    // Piernas con animación
+    ctx.fillStyle = (player.moving && f % 2 === 0) ? '#874b2f' : '#6b3b21';
+    ctx.fillRect(px - 6, py + 6, 6, 6);
+    ctx.fillRect(px + 0, py + 6, 6, 6);
+    
+    // Cabeza
+    ctx.fillStyle = '#ffd8b6';
+    ctx.fillRect(px - 7, py - 20, 14, 12);
+    
+    // Gorro navideño
+    ctx.fillStyle = hat;
+    ctx.fillRect(px - 10, py - 26, 20, 6);
+    
+    // Pompón
+    ctx.fillStyle = muff;
+    ctx.fillRect(px + 6, py - 28, 4, 4);
 }
 
-// Tile drawing function
-function drawTile(ctx,tx,ty,tile){
-  const px = tx*TILE, py = ty*TILE;
-  switch(tile){
-    case 0:
-      ctx.fillStyle = '#1e6b3a';
-      ctx.fillRect(px,py,TILE,TILE);
-      if(Math.random()<0.03){ ctx.fillStyle='#e6f7ff'; ctx.fillRect(px+4,py+4,6,6); }
-      break;
-    case 1:
-      ctx.fillStyle = '#4b2c12';
-      ctx.fillRect(px+TILE*0.45,py+TILE*0.6,TILE*0.1,TILE*0.4);
-      ctx.fillStyle = '#0d5b2e';
-      ctx.beginPath();
-      ctx.moveTo(px+TILE*0.5, py+4);
-      ctx.lineTo(px+4, py+TILE*0.65);
-      ctx.lineTo(px+TILE-4, py+TILE*0.65);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = '#ecf7ff';
-      ctx.fillRect(px+6,py+6,6,2);
-      break;
-    case 2:
-      ctx.fillStyle = '#6f6f6f';
-      ctx.fillRect(px+6,py+10,TILE-12,TILE-8);
-      break;
-    case 3:
-      ctx.fillStyle = '#0f5e2a';
-      ctx.fillRect(px+4,py+8,TILE-8,TILE-6);
-      ctx.fillStyle = '#ff293b';
-      ctx.fillRect(px+8,py+12,2,2);
-      break;
-    case 4:
-      ctx.fillStyle = '#dfefff';
-      ctx.fillRect(px,py,TILE,TILE);
-      break;
-    case 5:
-      ctx.fillStyle = '#073a6b';
-      ctx.fillRect(px,py,TILE,TILE);
-      break;
-  }
+function drawTile(ctx, tx, ty, tile) {
+    const px = tx * TILE, py = ty * TILE;
+    switch(tile) {
+        case 0: // Hierba
+            ctx.fillStyle = '#1e6b3a';
+            ctx.fillRect(px, py, TILE, TILE);
+            if(Math.random() < 0.03) {
+                ctx.fillStyle = '#e6f7ff';
+                ctx.fillRect(px + 4, py + 4, 6, 6);
+            }
+            break;
+        case 1: // Árbol
+            ctx.fillStyle = '#4b2c12';
+            ctx.fillRect(px + TILE * 0.45, py + TILE * 0.6, TILE * 0.1, TILE * 0.4);
+            ctx.fillStyle = '#0d5b2e';
+            ctx.beginPath();
+            ctx.moveTo(px + TILE * 0.5, py + 4);
+            ctx.lineTo(px + 4, py + TILE * 0.65);
+            ctx.lineTo(px + TILE - 4, py + TILE * 0.65);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = '#ecf7ff';
+            ctx.fillRect(px + 6, py + 6, 6, 2);
+            break;
+        case 2: // Roca
+            ctx.fillStyle = '#6f6f6f';
+            ctx.fillRect(px + 6, py + 10, TILE - 12, TILE - 8);
+            break;
+        case 3: // Arbusto
+            ctx.fillStyle = '#0f5e2a';
+            ctx.fillRect(px + 4, py + 8, TILE - 8, TILE - 6);
+            ctx.fillStyle = '#ff293b';
+            ctx.fillRect(px + 8, py + 12, 2, 2);
+            break;
+        case 4: // Camino de nieve
+            ctx.fillStyle = '#dfefff';
+            ctx.fillRect(px, py, TILE, TILE);
+            break;
+        case 5: // Agua
+            ctx.fillStyle = '#073a6b';
+            ctx.fillRect(px, py, TILE, TILE);
+            break;
+    }
 }
 
-function isPassable(tx,ty){
-  if(tx<0||ty<0||tx>=MAP_W||ty>=MAP_H) return false;
-  const t = map[ty][tx];
-  return !(t===1 || t===2 || t===5);
+function isPassable(tx, ty) {
+    if(tx < 0 || ty < 0 || tx >= MAP_W || ty >= MAP_H) return false;
+    const t = map[ty][tx];
+    return !(t === 1 || t === 2 || t === 5);
 }
 
-// Input handling
+// ========== INPUT HANDLING ==========
 window.addEventListener('keydown', (e) => {
-  const k = e.key.toLowerCase();
-  pressedKeys.add(k);
-  
-  if (k === 'e') {
-    e.preventDefault();
-    collectItem();
-  }
-  
-  if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault();
+    if (!gameStarted) return;
+    
+    const k = e.key.toLowerCase();
+    pressedKeys.add(k);
+    
+    if (k === 'e') {
+        e.preventDefault();
+        collectItem();
+    }
+    
+    if(['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) {
+        e.preventDefault();
+    }
 });
 
 window.addEventListener('keyup', (e) => {
-  pressedKeys.delete(e.key.toLowerCase());
+    pressedKeys.delete(e.key.toLowerCase());
 });
 
 // Mobile D-Pad
-document.getElementById('dpad').addEventListener('touchstart', (ev)=>{
-  ev.preventDefault();
-  const btn = ev.target.closest('button');
-  if(!btn) return;
-  handleDpad(btn.dataset.dir, true);
+document.getElementById('dpad').addEventListener('touchstart', (ev) => {
+    if (!gameStarted) return;
+    
+    ev.preventDefault();
+    const btn = ev.target.closest('button');
+    if(!btn) return;
+    handleDpad(btn.dataset.dir, true);
 });
 
-document.getElementById('dpad').addEventListener('touchend', (ev)=>{
-  ev.preventDefault();
-  handleDpad(null, false);
+document.getElementById('dpad').addEventListener('touchend', (ev) => {
+    ev.preventDefault();
+    handleDpad(null, false);
 });
 
-function handleDpad(dir, down){
-  pressedKeys.clear();
-  if(down && dir){
-    const mapDir = {
-      'north': 'arrowup', 'south':'arrowdown', 'west':'arrowleft','east':'arrowright',
-      'nw':'q','ne':'e','sw':'z','se':'c'
-    };
-    if(mapDir[dir]) pressedKeys.add(mapDir[dir]);
-  }
+function handleDpad(dir, down) {
+    pressedKeys.clear();
+    if(down && dir) {
+        const mapDir = {
+            'north': 'arrowup', 
+            'south': 'arrowdown', 
+            'west': 'arrowleft',
+            'east': 'arrowright',
+            'nw': 'q',
+            'ne': 'e', 
+            'sw': 'z',
+            'se': 'c'
+        };
+        if(mapDir[dir]) pressedKeys.add(mapDir[dir]);
+    }
 }
 
 // Disable double tap zoom
 let lastTouch = 0;
 document.addEventListener('touchend', function (e) {
-  const now = Date.now();
-  if (now - lastTouch <= 300) e.preventDefault();
-  lastTouch = now;
+    const now = Date.now();
+    if (now - lastTouch <= 300) e.preventDefault();
+    lastTouch = now;
 }, { passive: false });
 
 // Fullscreen
-document.getElementById('fullscreenBtn').addEventListener('click', async ()=>{
-  try{
-    if(!document.fullscreenElement) await document.documentElement.requestFullscreen();
-    else await document.exitFullscreen();
-  }catch(err){}
+document.getElementById('fullscreenBtn').addEventListener('click', async () => {
+    try {
+        if(!document.fullscreenElement) {
+            await document.documentElement.requestFullscreen();
+        } else {
+            await document.exitFullscreen();
+        }
+    } catch(err) {
+        console.log('Error fullscreen:', err);
+    }
 });
 
-// Collection mechanics
-function checkNearbyItems() {
-  const pTileX = Math.floor(player.x / TILE);
-  const pTileY = Math.floor(player.y / TILE);
-  nearItem = null;
-  
-  items.forEach(it => {
-    if (!it.found && Math.abs(it.xTile - pTileX) + Math.abs(it.yTile - pTileY) <= 1) {
-      nearItem = it;
-    }
-  });
-  
-  document.getElementById('message').textContent = nearItem ? 'Presiona E para recoger' : '';
-}
+// ========== GAME LOOP ==========
+function update() {
+    if (!gameStarted || gameCompleted) return;
 
-function collectItem() {
-  if (nearItem && !nearItem.found) {
-    nearItem.found = true;
-    foundCount++;
-    document.getElementById('found').textContent = foundCount;
-    addInventoryItem(nearItem.type);
-    nearItem = null;
+    let dx = 0, dy = 0;
+    if(pressedKeys.has('arrowup') || pressedKeys.has('w')) dy -= 1;
+    if(pressedKeys.has('arrowdown') || pressedKeys.has('s')) dy += 1;
+    if(pressedKeys.has('arrowleft') || pressedKeys.has('a')) dx -= 1;
+    if(pressedKeys.has('arrowright') || pressedKeys.has('d')) dx += 1;
     
-    if (foundCount === items.length && !gameCompleted) {
-      gameCompleted = true;
-      stopGameTimer();
-      setTimeout(showScoreModal, 1000);
+    // Normalizar movimiento diagonal
+    if(dx !== 0 && dy !== 0) {
+        dx *= Math.SQRT1_2;
+        dy *= Math.SQRT1_2;
     }
-  }
-}
-
-function addInventoryItem(type) {
-  const inv = document.getElementById('inventory');
-  const div = document.createElement('div');
-  div.className = 'item';
-  div.textContent = type;
-  inv.appendChild(div);
-  showMessage(`¡${type} encontrado!`, 'success');
-}
-
-// Game loop
-function update(){
-  if (gameCompleted) return;
-
-  let dx=0, dy=0;
-  if(pressedKeys.has('arrowup') || pressedKeys.has('w')) dy -= 1;
-  if(pressedKeys.has('arrowdown') || pressedKeys.has('s')) dy += 1;
-  if(pressedKeys.has('arrowleft') || pressedKeys.has('a')) dx -= 1;
-  if(pressedKeys.has('arrowright') || pressedKeys.has('d')) dx += 1;
-  
-  if(dx!==0 && dy!==0){ dx *= Math.SQRT1_2; dy *= Math.SQRT1_2; }
-  
-  player.vx = dx * PLAYER_SPEED;
-  player.vy = dy * PLAYER_SPEED;
-  player.moving = (dx!==0 || dy!==0);
-
-  const nextX = player.x + player.vx;
-  const nextY = player.y + player.vy;
-  
-  if(isPassable(Math.floor((nextX-8)/TILE), Math.floor((player.y-8)/TILE)) &&
-     isPassable(Math.floor((nextX+8)/TILE), Math.floor((player.y+8)/TILE))){
-    player.x = nextX;
-  }
-  if(isPassable(Math.floor((player.x-8)/TILE), Math.floor((nextY-8)/TILE)) &&
-     isPassable(Math.floor((player.x+8)/TILE), Math.floor((nextY+8)/TILE))){
-    player.y = nextY;
-  }
-
-  if(player.vx>0) player.dir='right';
-  else if(player.vx<0) player.dir='left';
-  else if(player.vy>0) player.dir='down';
-  else if(player.vy<0) player.dir='up';
-
-  if(player.moving){
-    player.animTick++;
-    if(player.animTick>6){ player.animTick=0; player.animFrame=(player.animFrame+1)%4; }
-  } else {
-    player.animTick++;
-    if(player.animTick>12){ player.animTick=0; player.animFrame=0; }
-  }
-
-  checkNearbyItems();
-}
-
-function draw(){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-
-  for(let y=0;y<MAP_H;y++){
-    for(let x=0;x<MAP_W;x++){
-      drawTile(ctx, x, y, map[y][x]);
-    }
-  }
-
-  items.forEach(it => {
-    const px = it.xTile * TILE + TILE/2;
-    const py = it.yTile * TILE + TILE/2;
     
-    if(!it.found) {
-      ctx.fillStyle = it.color;
-      ctx.fillRect(px-6, py-6, 12, 12);
-      ctx.fillStyle = '#000';
-      ctx.font = '10px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(it.symbol, px, py);
+    player.vx = dx * PLAYER_SPEED;
+    player.vy = dy * PLAYER_SPEED;
+    player.moving = (dx !== 0 || dy !== 0);
+
+    // Movimiento con colisión
+    const nextX = player.x + player.vx;
+    const nextY = player.y + player.vy;
+    
+    // Verificar colisión en X
+    if(isPassable(Math.floor((nextX - 8) / TILE), Math.floor(player.y / TILE)) &&
+       isPassable(Math.floor((nextX + 8) / TILE), Math.floor(player.y / TILE))) {
+        player.x = nextX;
+    }
+    
+    // Verificar colisión en Y
+    if(isPassable(Math.floor(player.x / TILE), Math.floor((nextY - 12) / TILE)) &&
+       isPassable(Math.floor(player.x / TILE), Math.floor((nextY + 8) / TILE))) {
+        player.y = nextY;
+    }
+
+    // Actualizar dirección
+    if(player.vx > 0) player.dir = 'right';
+    else if(player.vx < 0) player.dir = 'left';
+    else if(player.vy > 0) player.dir = 'down';
+    else if(player.vy < 0) player.dir = 'up';
+
+    // Animación
+    if(player.moving) {
+        player.animTick++;
+        if(player.animTick > 6) {
+            player.animTick = 0;
+            player.animFrame = (player.animFrame + 1) % 4;
+        }
     } else {
-      ctx.fillStyle = '#ffd86b';
-      ctx.fillRect(px-4, py-4, 8, 8);
+        player.animTick++;
+        if(player.animTick > 12) {
+            player.animTick = 0;
+            player.animFrame = 0;
+        }
     }
-  });
 
-  drawPlayer(ctx, player.x, player.y);
+    // Verificar items cercanos
+    checkNearbyItems();
 }
 
-function loop(){
-  update();
-  draw();
-  requestAnimationFrame(loop);
+function draw() {
+    // Limpiar canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Dibujar mapa
+    for(let y = 0; y < MAP_H; y++) {
+        for(let x = 0; x < MAP_W; x++) {
+            drawTile(ctx, x, y, map[y][x]);
+        }
+    }
+
+    // Dibujar items
+    items.forEach(it => {
+        const px = it.xTile * TILE + TILE/2;
+        const py = it.yTile * TILE + TILE/2;
+        
+        if(!it.found) {
+            // Dibujar item visible
+            ctx.fillStyle = it.color;
+            ctx.fillRect(px - 6, py - 6, 12, 12);
+            
+            // Dibujar símbolo
+            ctx.fillStyle = '#000';
+            ctx.font = '10px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(it.symbol, px, py);
+            
+            // Resaltar si está cerca
+            if (nearItem === it) {
+                ctx.strokeStyle = '#ffff00';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(px - 8, py - 8, 16, 16);
+            }
+        } else {
+            // Dibujar como recogido (brillo)
+            ctx.fillStyle = '#ffd86b';
+            ctx.fillRect(px - 4, py - 4, 8, 8);
+        }
+    });
+
+    // Dibujar jugador
+    drawPlayer(ctx, player.x, player.y);
+}
+
+function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
 }
 
 // ========== INICIALIZACIÓN DEL JUEGO ==========
-// Map and items initialization
+// Mapa
 const map = [];
-for(let y=0;y<MAP_H;y++){
-  map[y] = [];
-  for(let x=0;x<MAP_W;x++){
-    if(y===0||y===MAP_H-1||x===0||x===MAP_W-1) map[y][x]=1;
-    else map[y][x] = Math.random() < 0.05 ? 2 : (Math.random() < 0.12 ? 3 : (Math.random() < 0.02 ? 5 : 0));
-  }
+for(let y = 0; y < MAP_H; y++) {
+    map[y] = [];
+    for(let x = 0; x < MAP_W; x++) {
+        if(y === 0 || y === MAP_H - 1 || x === 0 || x === MAP_W - 1) {
+            map[y][x] = 1; // Bordes son árboles
+        } else {
+            map[y][x] = Math.random() < 0.05 ? 2 : 
+                        (Math.random() < 0.12 ? 3 : 
+                        (Math.random() < 0.02 ? 5 : 0));
+        }
+    }
 }
 
-for(let i=0;i<14;i++){
-  const tx = 2 + Math.floor(Math.random()*(MAP_W-4));
-  const ty = 2 + Math.floor(Math.random()*(MAP_H-4));
-  map[ty][tx] = 1;
+// Agregar algunos árboles decorativos
+for(let i = 0; i < 14; i++) {
+    const tx = 2 + Math.floor(Math.random() * (MAP_W - 4));
+    const ty = 2 + Math.floor(Math.random() * (MAP_H - 4));
+    map[ty][tx] = 1;
 }
 
+// Items
 const items = [];
 const ITEM_TYPES = [
-  { name: 'regalo_rojo', color: '#ff4444', symbol: '🎁' },
-  { name: 'regalo_verde', color: '#44ff44', symbol: '🎁' },
-  { name: 'muñeco_nieve', color: '#ffffff', symbol: '⛄' }
+    { name: 'regalo_rojo', color: '#ff4444', symbol: '🎁' },
+    { name: 'regalo_verde', color: '#44ff44', symbol: '🎁' },
+    { name: 'muñeco_nieve', color: '#ffffff', symbol: '⛄' }
 ];
 
-for(let i=0;i<10;i++){
-  let tries=0;
-  while(tries<200){
-    const rx = 1 + Math.floor(Math.random()*(MAP_W-2));
-    const ry = 1 + Math.floor(Math.random()*(MAP_H-2));
-    if((map[ry][rx]===3 || map[ry][rx]===1 || map[ry][rx]===2) && !items.find(it=>it.xTile===rx && it.yTile===ry)){
-      const itemType = ITEM_TYPES[Math.floor(Math.random()*ITEM_TYPES.length)];
-      items.push({
-        xTile:rx, yTile:ry,
-        type: itemType.name,
-        color: itemType.color,
-        symbol: itemType.symbol,
-        found:false
-      });
-      break;
+// Colocar items en posiciones accesibles
+for(let i = 0; i < 10; i++) {
+    let tries = 0;
+    while(tries < 100) {
+        const rx = 1 + Math.floor(Math.random() * (MAP_W - 2));
+        const ry = 1 + Math.floor(Math.random() * (MAP_H - 2));
+        
+        // Solo colocar en tiles pasables (hierba o camino)
+        if(map[ry][rx] === 0 || map[ry][rx] === 4) {
+            const itemType = ITEM_TYPES[Math.floor(Math.random() * ITEM_TYPES.length)];
+            items.push({
+                xTile: rx,
+                yTile: ry,
+                type: itemType.name,
+                color: itemType.color,
+                symbol: itemType.symbol,
+                found: false
+            });
+            break;
+        }
+        tries++;
     }
-    tries++;
-  }
 }
+
 document.getElementById('total').textContent = items.length;
 
 // Inicializar Discord ID desde URL
 initializeDiscordId();
 
 // Iniciar juego
-startGameTimer();
 loop();
-loadLeaderboard(); // Cargar ranking inicial
+loadLeaderboard();
 </script>
 </body>
 </html>
