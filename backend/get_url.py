@@ -18,7 +18,7 @@ def health_check():
     return 'OK', 200
 
 def run_flask():
-    app.run(host='0.0.0.0', port=5001, debug=False, threaded=True)
+    app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
 
 # === CONFIGURACIÓN DE TÚNELES === #
 OUTPUT_FILE = "public_url.txt"
@@ -36,7 +36,7 @@ def wait_for_flask_ready(timeout=30):
     start_time = time.time()
     while time.time() - start_time < timeout:
         try:
-            response = requests.get('http://localhost:5001/health', timeout=5)
+            response = requests.get('http://localhost:5000/health', timeout=5)
             if response.status_code == 200:
                 print("✅ Flask está listo y respondiendo")
                 return True
@@ -50,7 +50,7 @@ def start_serveo():
     """Intenta iniciar Serveo"""
     print("🚀 Intentando conectar con Serveo...")
     try:
-        command = ["ssh", "-o", "StrictHostKeyChecking=no", "-R", "80:localhost:5001", "serveo.net"]
+        command = ["ssh", "-o", "StrictHostKeyChecking=no", "-R", "80:localhost:5000", "serveo.net"]
         process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
         start_time = time.time()
 
@@ -79,7 +79,7 @@ def start_localhost_run():
     """Intenta con localhost.run (¡sabemos que funciona!)"""
     print("🌐 Intentando con localhost.run...")
     try:
-        command = ["ssh", "-o", "StrictHostKeyChecking=no", "-R", "80:localhost:5001", "nokey@localhost.run"]
+        command = ["ssh", "-o", "StrictHostKeyChecking=no", "-R", "80:localhost:5000", "nokey@localhost.run"]
         process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
         
         start_time = time.time()
@@ -144,7 +144,7 @@ def start_cloudflare():
     time.sleep(2)
     
     try:
-        command = ["cloudflared", "tunnel", "--url", "http://localhost:5001"]
+        command = ["cloudflared", "tunnel", "--url", "http://localhost:5000"]
         process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
         
         start_time = time.time()
@@ -241,7 +241,7 @@ def main():
         print("\n💡 Soluciones:")
         print("1. Verifica tu conexión a Internet")
         print("2. localhost.run debería funcionar - prueba manualmente:")
-        print("   ssh -o StrictHostKeyChecking=no -R 80:localhost:5001 nokey@localhost.run")
+        print("   ssh -o StrictHostKeyChecking=no -R 80:localhost:5000 nokey@localhost.run")
     else:
         print(f"\n🎉 ¡Túnel público activo! Revisa el archivo: {OUTPUT_FILE}")
         try:
