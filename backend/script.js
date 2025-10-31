@@ -520,4 +520,3 @@ loop();
 
 // Cargar leaderboard inicial
 loadLeaderboard();
-</script>
