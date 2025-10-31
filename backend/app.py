@@ -9,17 +9,11 @@ import time
 # === CONFIGURACIÓN PRINCIPAL === #
 app = Flask(__name__)
 
-# OBTENER LA RUTA ABSOLUTA DEL DIRECTORIO ACTUAL
-base_dir = os.path.abspath(os.path.dirname(__file__))
-db_path = os.path.join(base_dir, 'scores.db')
-
-# USAR RUTA ABSOLUTA PARA LA BASE DE DATOS
-app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
+# Usar la configuración por defecto de Flask (directorio instance)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///scores.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-print(f"📁 Base de datos en: {db_path}")  # Para verificar la ruta
-
-# El resto de tu código permanece igual...
+# Inicialización de la base de datos
 db = SQLAlchemy(app)
 db_lock = Lock()
 
@@ -43,52 +37,94 @@ def health_check():
 
 @app.route('/score', methods=['POST'])
 def add_score():
-    now = datetime.utcnow()
-    if now > LIMIT_DATE:
-        return jsonify({'status':'error','message':'El evento ha terminado'}), 403
-
-    data = request.get_json()
-    if not data:
-        return jsonify({'status':'error','message':'Datos JSON requeridos'}), 400
-        
-    discord_id = data.get('discord_id')
-    score = data.get('score')
-    
-    if not discord_id or score is None:
-        return jsonify({'status':'error','message':'Datos incompletos'}), 400
-
     try:
+        now = datetime.utcnow()
+        if now > LIMIT_DATE:
+            return jsonify({'status':'error','message':'El evento ha terminado'}), 403
+
+        data = request.get_json()
+        if not data:
+            return jsonify({'status':'error','message':'Datos JSON requeridos'}), 400
+            
+        discord_id = data.get('discord_id')
+        score = data.get('score')
+        
+        if not discord_id or score is None:
+            return jsonify({'status':'error','message':'Datos incompletos'}), 400
+
+        # Verificar si el directorio instance existe
+        instance_path = os.path.join(os.path.dirname(__file__), 'instance')
+        if not os.path.exists(instance_path):
+            os.makedirs(instance_path)
+            print(f"📁 Directorio instance creado: {instance_path}")
+
         new_score = Score(discord_id=discord_id, score=score)
         db.session.add(new_score)
         db.session.commit()
-        return jsonify({'status':'success','message':'Puntaje guardado correctamente'})
+        
+        print(f"✅ Score guardado: {discord_id} - {score}")
+        return jsonify({
+            'status': 'success',
+            'message': 'Puntaje guardado correctamente',
+            'id': new_score.id
+        })
+        
     except Exception as e:
         db.session.rollback()
         print(f"❌ Error en base de datos: {e}")
-        return jsonify({'status':'error','message':'Error en la base de datos'}), 500
+        return jsonify({
+            'status': 'error',
+            'message': f'Error en la base de datos: {str(e)}'
+        }), 500
 
 @app.route('/scores', methods=['GET'])
 def get_scores():
     try:
         top_scores = Score.query.filter(Score.date <= LIMIT_DATE).order_by(Score.score.asc()).limit(10).all()
-        return jsonify([
-            {'discord_id': s.discord_id, 'score': s.score, 'date': s.date.isoformat()}
+        
+        # Si no hay scores, devolver array vacío
+        if not top_scores:
+            return jsonify([])
+            
+        scores_data = [
+            {
+                'discord_id': s.discord_id, 
+                'score': s.score, 
+                'date': s.date.isoformat() if s.date else None
+            }
             for s in top_scores
-        ])
+        ]
+        
+        print(f"✅ Scores recuperados: {len(scores_data)} registros")
+        return jsonify(scores_data)
+        
     except Exception as e:
         print(f"❌ Error recuperando scores: {e}")
-        return jsonify({'status':'error','message':'Error recuperando puntuaciones'}), 500
+        return jsonify({
+            'status': 'error',
+            'message': 'Error recuperando puntuaciones'
+        }), 500
 
 # === INICIALIZACIÓN === #
 def init_db():
     with app.app_context():
         try:
+            # Crear directorio instance si no existe
+            instance_path = os.path.join(os.path.dirname(__file__), 'instance')
+            if not os.path.exists(instance_path):
+                os.makedirs(instance_path)
+                print(f"📁 Directorio instance creado: {instance_path}")
+            
             db.create_all()
             print("✅ Base de datos inicializada correctamente")
             
-            # Verificar que tenemos la tabla y algunos datos de prueba
+            # Verificar que tenemos la tabla
             count = Score.query.count()
             print(f"✅ Registros en la base de datos: {count}")
+            
+            # Verificar la ruta de la base de datos
+            db_path = os.path.join(instance_path, 'scores.db')
+            print(f"📊 Base de datos ubicada en: {db_path}")
             
         except Exception as e:
             print(f"❌ Error inicializando base de datos: {e}")
@@ -99,8 +135,9 @@ if __name__ == '__main__':
     print("🚀 Servidor Flask iniciando...")
     print("📊 Endpoints disponibles:")
     print("   GET  /          -> Página principal")
-    print("   GET  /health    -> Health check")
+    print("   GET  /health    -> Health check") 
     print("   POST /score     -> Guardar puntuación")
     print("   GET  /scores    -> Obtener ranking")
+    print("🌐 Servidor corriendo en: http://0.0.0.0:5000")
     
     app.run(host='0.0.0.0', port=5000, debug=True)
