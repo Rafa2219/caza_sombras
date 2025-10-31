@@ -8,10 +8,18 @@ import time
 
 # === CONFIGURACIÓN PRINCIPAL === #
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///scores.db'
+
+# OBTENER LA RUTA ABSOLUTA DEL DIRECTORIO ACTUAL
+base_dir = os.path.abspath(os.path.dirname(__file__))
+db_path = os.path.join(base_dir, 'scores.db')
+
+# USAR RUTA ABSOLUTA PARA LA BASE DE DATOS
+app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Inicialización de la base de datos
+print(f"📁 Base de datos en: {db_path}")  # Para verificar la ruta
+
+# El resto de tu código permanece igual...
 db = SQLAlchemy(app)
 db_lock = Lock()
 
@@ -56,6 +64,7 @@ def add_score():
         return jsonify({'status':'success','message':'Puntaje guardado correctamente'})
     except Exception as e:
         db.session.rollback()
+        print(f"❌ Error en base de datos: {e}")
         return jsonify({'status':'error','message':'Error en la base de datos'}), 500
 
 @app.route('/scores', methods=['GET'])
@@ -67,6 +76,7 @@ def get_scores():
             for s in top_scores
         ])
     except Exception as e:
+        print(f"❌ Error recuperando scores: {e}")
         return jsonify({'status':'error','message':'Error recuperando puntuaciones'}), 500
 
 # === INICIALIZACIÓN === #
