@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 
@@ -6,22 +6,24 @@ app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///scores.db'
 db = SQLAlchemy(app)
 
+LIMIT_DATE = datetime(2025, 11, 5, 23, 59, 59)  # Fecha límite evento
+
+# --- Modelo de puntuación ---
 class Score(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     discord_id = db.Column(db.String(50))
     score = db.Column(db.Integer)
     date = db.Column(db.DateTime, default=datetime.utcnow)
 
-# --- Crear las tablas dentro del contexto de la app ---
-with app.app_context():
-    db.create_all()
+# --- Función para inicializar la base de datos ---
+def init_db():
+    with app.app_context():
+        db.create_all()
+        print("✅ Base de datos creada correctamente")
 
-# --- Resto del código ---
-LIMIT_DATE = datetime(2025, 11, 5, 23, 59, 59)
-
+# --- Endpoints ---
 @app.route('/score', methods=['POST'])
 def add_score():
-    from flask import request, jsonify
     now = datetime.utcnow()
     if now > LIMIT_DATE:
         return jsonify({'status':'error','message':'El evento ha terminado'}), 403
@@ -45,5 +47,7 @@ def get_scores():
         for s in top_scores
     ])
 
+# --- Main ---
 if __name__ == '__main__':
+    init_db()       # Inicializa la base de datos dentro del contexto
     app.run(host='0.0.0.0', port=5000)
