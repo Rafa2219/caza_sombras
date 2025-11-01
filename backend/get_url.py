@@ -24,8 +24,10 @@ def run_flask():
 
 # === CONFIGURACIÓN DE TÚNELES === #
 OUTPUT_FILE = "public_url.txt"
-RECONNECT_INTERVAL = 30  # 1/2 minuto
+RECONNECT_INTERVAL = 300  # 5 minutos después de falla total
 HEALTH_CHECK_INTERVAL = 60  # 1 minuto
+MAX_ATTEMPTS_PER_SERVICE = 5  # 5 intentos por servicio
+ATTEMPT_DELAY = 10  # 10 segundos entre intentos del mismo servicio
 
 serveo_pattern = re.compile(r"https://[a-zA-Z0-9\-]+\.serveo\.net")
 cloudflare_pattern = re.compile(r"https://[a-zA-Z0-9\-]+\.trycloudflare\.com")
@@ -35,6 +37,7 @@ localhost_run_pattern = re.compile(r"https://[a-zA-Z0-9\-]+\.lhr\.life")
 current_tunnel_process = None
 tunnel_active = False
 current_url = None
+service_attempts = {}  # Seguimiento de intentos por servicio
 
 def write_url(url: str):
     global current_url
@@ -80,7 +83,7 @@ def tunnel_health_monitor():
                 start_tunnel_services()
 
 def start_serveo():
-    """Intenta iniciar Serveo"""
+    """Intenta iniciar Serveo con múltiples intentos"""
     global current_tunnel_process
     print("🚀 Intentando conectar con Serveo...")
     try:
@@ -118,7 +121,7 @@ def start_serveo():
     return None
 
 def start_localhost_run():
-    """Inicia túnel con localhost.run"""
+    """Inicia túnel con localhost.run con múltiples intentos"""
     global current_tunnel_process
     print("🌐 Intentando con localhost.run...")
     try:
@@ -165,7 +168,7 @@ def start_localhost_run():
     return None
 
 def start_cloudflare():
-    """Inicia túnel con Cloudflare"""
+    """Inicia túnel con Cloudflare con múltiples intentos"""
     global current_tunnel_process
     print("🌩️ Intentando conectar con Cloudflare...")
     
@@ -227,6 +230,30 @@ def start_cloudflare():
     
     return None
 
+def start_service_with_retries(service_name, service_func):
+    """Intenta conectar a un servicio con múltiples reintentos"""
+    global service_attempts
+    
+    if service_name not in service_attempts:
+        service_attempts[service_name] = 0
+    
+    for attempt in range(1, MAX_ATTEMPTS_PER_SERVICE + 1):
+        service_attempts[service_name] = attempt
+        print(f"\n🔄 {service_name} - Intento {attempt}/{MAX_ATTEMPTS_PER_SERVICE}")
+        
+        process = service_func()
+        if process is not None:
+            print(f"✅ {service_name} conectado exitosamente en el intento {attempt}")
+            service_attempts[service_name] = 0  # Resetear contador
+            return process
+        
+        if attempt < MAX_ATTEMPTS_PER_SERVICE:
+            print(f"⏳ Esperando {ATTEMPT_DELAY} segundos antes del próximo intento...")
+            time.sleep(ATTEMPT_DELAY)
+    
+    print(f"❌ {service_name} falló después de {MAX_ATTEMPTS_PER_SERVICE} intentos")
+    return None
+
 def check_templates_exist():
     template_path = os.path.join("templates", "index.html")
     if os.path.exists(template_path):
@@ -245,8 +272,8 @@ def cleanup(signum=None, frame=None):
     sys.exit(0)
 
 def start_tunnel_services():
-    """Inicia los servicios de túnel con reintentos"""
-    global tunnel_active, current_tunnel_process
+    """Inicia los servicios de túnel con reintentos por servicio"""
+    global tunnel_active, current_tunnel_process, service_attempts
     
     services = [
         ("Serveo", start_serveo),
@@ -254,21 +281,33 @@ def start_tunnel_services():
         ("Cloudflare", start_cloudflare)
     ]
 
-    while not tunnel_active:
-        for service_name, service_func in services:
-            print(f"\n{'='*50}")
-            print(f"🔍 Probando {service_name}...")
-            process = service_func()
-            if process is not None:
-                print(f"✅ Conectado exitosamente con {service_name}")
-                tunnel_active = True
-                current_tunnel_process = process
-                return True
-            else:
-                print(f"❌ {service_name} falló")
+    # Reiniciar contadores de intentos si es la primera vez
+    if not service_attempts:
+        for service_name, _ in services:
+            service_attempts[service_name] = 0
 
-        print(f"\n💤 Todos los servicios fallaron. Reintentando en {RECONNECT_INTERVAL//60} minutos...")
-        time.sleep(RECONNECT_INTERVAL)
+    print(f"\n🎯 Iniciando proceso de conexión con {MAX_ATTEMPTS_PER_SERVICE} intentos por servicio")
+    
+    for service_name, service_func in services:
+        print(f"\n{'='*60}")
+        print(f"🔍 Probando {service_name}...")
+        
+        process = start_service_with_retries(service_name, service_func)
+        if process is not None:
+            print(f"✅ Conectado exitosamente con {service_name}")
+            tunnel_active = True
+            current_tunnel_process = process
+            return True
+
+    # Si llegamos aquí, todos los servicios fallaron
+    print(f"\n💥 TODOS LOS SERVICIOS FALLARON después de {MAX_ATTEMPTS_PER_SERVICE} intentos cada uno")
+    print(f"⏳ Reintentando en {RECONNECT_INTERVAL//60} minutos...")
+    
+    # Mostrar resumen de intentos
+    print("\n📊 Resumen de intentos:")
+    for service_name, attempts in service_attempts.items():
+        status = "❌ Falló" if attempts >= MAX_ATTEMPTS_PER_SERVICE else "⚠️ No probado completamente"
+        print(f"   {service_name}: {attempts}/{MAX_ATTEMPTS_PER_SERVICE} intentos - {status}")
     
     return False
 
@@ -279,9 +318,9 @@ def main():
     signal.signal(signal.SIGINT, cleanup)
     signal.signal(signal.SIGTERM, cleanup)
     
-    print("🎯 Iniciando servidor Flask con sistema de reconexión automática...")
-    print("📡 Servicios disponibles: localhost.run → Serveo → Cloudflare")
-    print("🔧 Reconexión automática cada 5 minutos si falla")
+    print("🎯 Iniciando servidor Flask con sistema de reconexión mejorado")
+    print("📡 Servicios disponibles: Serveo → localhost.run → Cloudflare")
+    print(f"🔄 {MAX_ATTEMPTS_PER_SERVICE} intentos por servicio, {RECONNECT_INTERVAL//60} minutos entre ciclos completos")
     
     if not check_templates_exist():
         return
@@ -298,18 +337,35 @@ def main():
     health_thread = threading.Thread(target=tunnel_health_monitor, daemon=True)
     health_thread.start()
 
-    # Iniciar el primer túnel
-    start_tunnel_services()
-
-    # Mantener el programa corriendo
-    try:
-        while True:
-            time.sleep(10)
-            if not tunnel_active:
-                print("🔄 Reconectando servicios de túnel...")
-                start_tunnel_services()
-    except KeyboardInterrupt:
-        cleanup()
+    # Bucle principal con reintentos completos cada 5 minutos
+    consecutive_failures = 0
+    while True:
+        success = start_tunnel_services()
+        
+        if success:
+            consecutive_failures = 0
+            print("\n✅ Conexión establecida. Monitoreando...")
+            
+            # Esperar mientras el túnel esté activo
+            try:
+                while tunnel_active:
+                    time.sleep(10)
+            except KeyboardInterrupt:
+                cleanup()
+        else:
+            consecutive_failures += 1
+            print(f"\n❌ Ciclo de conexión fallido (#{consecutive_failures})")
+            print(f"⏳ Esperando {RECONNECT_INTERVAL//60} minutos para el próximo ciclo...")
+            
+            # Contar regresivamente los 5 minutos
+            for remaining in range(RECONNECT_INTERVAL, 0, -30):  # Actualizar cada 30 segundos
+                if remaining % 60 == 0:
+                    print(f"   Tiempo restante: {remaining//60} minutos")
+                else:
+                    print(f"   Tiempo restante: {remaining} segundos")
+                time.sleep(30)
+            
+            print("🔄 Reiniciando ciclo de conexión...")
 
 if __name__ == "__main__":
     main()
