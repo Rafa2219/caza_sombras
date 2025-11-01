@@ -24,7 +24,7 @@ def run_flask():
 
 # === CONFIGURACIÓN DE TÚNELES === #
 OUTPUT_FILE = "public_url.txt"
-RECONNECT_INTERVAL = 300  # 5 minutos
+RECONNECT_INTERVAL = 30  # 1/2 minuto
 HEALTH_CHECK_INTERVAL = 60  # 1 minuto
 
 serveo_pattern = re.compile(r"https://[a-zA-Z0-9\-]+\.serveo\.net")
@@ -249,7 +249,6 @@ def start_tunnel_services():
     global tunnel_active, current_tunnel_process
     
     services = [
-    	
         ("Serveo", start_serveo),
         ("localhost.run", start_localhost_run),
         ("Cloudflare", start_cloudflare)
