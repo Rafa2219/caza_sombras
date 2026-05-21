@@ -6,6 +6,7 @@ Rompecabezas divertido con emojis de Halloween, ranking en tiempo real y puntuac
 **Duración del evento:** hasta el 5 de noviembre 2025.
 
 ---
+> Esto está hecho con IA por cierto.
 
 ## 🗂 Estructura de archivos
 
